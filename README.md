@@ -1,4 +1,5 @@
-https://github.com/jpatacas/ifcjs-viewer
+В примере использованы следующие проекты:  
+https://github.com/jpatacas/ifcjs-viewer  
 https://github.com/tangl-services/tangl-dev/tree/main/tangl-demo-playground
 
 # Интеграция BIM-моделей с расширенными данными через SQLite и веб-вьюверы
