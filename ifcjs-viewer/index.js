@@ -5,3 +5,4 @@ for (let proj of projects)
 {
     createCardDiv(proj.name, proj.id);
 }
+

@@ -286,20 +286,7 @@ async function constructTreeMenuNode(parent, node) {
   // console.log(node.expressID, props.GlobalId.value);
   
   try {
-    const response = await fetch('http://localhost:4000/save-vocabulary', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        // modelname: fileName,
-        expressid: node.expressID,
-        globalid: props.GlobalId.value
-      }),
-    });
-
-    const result = await response.json();
-    // alert(result.success ? 'Action saved!' : 'Error: ' + result.error);
+    await saveVacabulary(props.GlobalId.value)
   } catch (error) {
     console.error('Error:', error);
     // alert('Connection error!');
@@ -364,15 +351,80 @@ function createSimpleChild(parent, node) {
 }
 
 //IFC properties menu functions
+const dialog = document.getElementById("dialog");
+const inputForm = document.getElementById("inputForm");
 
-async function createPropertiesMenu(properties) {
+let globalidVocabulary;
+
+const input_DivisionNumber = document.getElementById("input_DivisionNumber");
+const input_StartDatePlan = document.getElementById("input_StartDatePlan");
+const input_StartDateIs = document.getElementById("input_StartDateIs");
+const input_EndDatePlan = document.getElementById("input_EndDatePlan");
+const input_EndDateIs = document.getElementById("input_EndDateIs");
+
+
+dialog.addEventListener('submit', (event) => {
+  console.log("addEventListener", event)
+  event.preventDefault(); // Отменяем стандартное поведение формы
+  try {
+    dialog.close();
+    updateVacabulary(globalidVocabulary)
+  } catch (error) {
+    console.error('Error:', error);
+    // alert('Connection error!');
+  }
+})
+
+async function saveVacabulary(globalid){
+  const responsePost = await fetch('http://localhost:4000/add-vocabulary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fileName: fileName,
+      globalid: encodeURIComponent(globalid)
+    }),
+  });
+  const result = await responsePost.json();
+  // console.log(result)
+}
+
+async function updateVacabulary(globalid){
+  const responsePost = await fetch('http://localhost:4000/update-vocabulary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fileName: fileName,
+      globalid: globalid,
+      DivisionNumberVocabulary: input_DivisionNumber.value,
+      StartDatePlanVocabulary: input_StartDatePlan.value,
+      StartDateIsVocabulary: input_StartDateIs.value,
+      EndDatePlanVocabulary: input_EndDatePlan.value,
+      EndDateIsVocabulary: input_EndDateIs.value
+    }),
+  });
+  const result = await responsePost.json();
+  // console.log(result)
+}
+
+async function createPropertiesMenu(props) {
+  inputForm.reset();
+  globalidVocabulary = null;
+  input_DivisionNumber.disabled = false;
+  input_StartDatePlan.disabled = false;
+  input_StartDateIs.disabled = false;
+  input_EndDatePlan.disabled = false;
+  input_EndDateIs.disabled = false;
 
   removeAllChildren(propsGUI);
-  console.log(properties.GlobalId.value)
-  let vocabulary = ""
+  console.log(props)
+  let fromVocabulary;
   try {
-    const globalid = encodeURIComponent(properties.GlobalId.value);
-    const response = await fetch(`http://localhost:4000/get-vocabulary/?globalid=${globalid}`, {
+    globalidVocabulary = encodeURIComponent(props.GlobalId.value);
+    const response = await fetch(`http://localhost:4000/get-vocabulary/?fileName=${fileName}&globalid=${globalidVocabulary}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -382,24 +434,47 @@ async function createPropertiesMenu(properties) {
     if (!response.ok) {
       console.error(`HTTP error! status: ${response.status}`);
     }
-
     // Парсинг JSON данных
     const result = await response.json();
-    vocabulary = result.vocabulary;
-    console.log(result);
+    console.log("result",result)
+    if (result != null){
+      if (result.RUS_DivisionNumber){
+        props.RUS_DivisionNumber = result.RUS_DivisionNumber;
+        input_DivisionNumber.disabled = true;
+      }
+      if (result.RUS_StartDatePlan){
+        props.RUS_StartDatePlan = result.RUS_StartDatePlan;
+        input_StartDatePlan.disabled = true;
+      }
+      if (result.RUS_StartDateIs){
+        props.RUS_StartDateIs = result.RUS_StartDateIs;
+        input_StartDateIs.disabled = true;
+      }
+      if (result.RUS_EndDatePlan){
+        props.RUS_EndDatePlan = result.RUS_EndDatePlan;
+        input_EndDatePlan.disabled = true;
+      }
+      if (result.RUS_EndDateIs){
+        props.RUS_EndDateIs = result.RUS_EndDateIs;
+        input_EndDateIs.disabled = true;
+      }
+    }
+
+
     // alert(result.success ? 'Action saved!' : 'Error: ' + result.error);
   } catch (error) {
     console.error('Error:', error);
     // alert('Connection error!');
   }
-  delete properties.psets;
-  delete properties.mats;
-  delete properties.type;
+  delete props.psets;
+  delete props.mats;
+  delete props.type;
   // properties.mats = JSON.stringify(properties.mats);
-  properties.vocabulary = vocabulary;
-  for (let key in properties) {
-    createPropertyEntry(key, properties[key]);
+  for (let key in props) {
+    createPropertyEntry(key, props[key]);
   }
+  // input.value = null;
+  dialog.showModal();
 }
 
 function createPropertyEntry(key, value) {

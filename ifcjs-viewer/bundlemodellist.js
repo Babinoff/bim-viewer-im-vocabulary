@@ -67,6 +67,14 @@ const projects = [
     name: "проект_тест",
     id: "1000009",
   },
+  {
+    name: "Новый проект",
+    id: "1000010",
+  },
+  {
+    name: "Renga коттедж для сериала",
+    id: "1000011",
+  },
 ];
 
 for (let proj of projects)

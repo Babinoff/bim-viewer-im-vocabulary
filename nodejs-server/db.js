@@ -15,7 +15,7 @@ async function createDatabase(filename) {
 
     // Проверяем, существует ли файл базы данных
     if (fs.existsSync(dbPath)) {
-        console.log(`Файл базы данных "${filename}.sqlite" уже существует.`);
+        throw new Error(`Файл базы данных "${filename}.sqlite" уже существует.`);
     }
 
     // Убедимся, что папка models существует
@@ -61,9 +61,13 @@ async function initializeDatabase() {
     return new Promise((resolve, reject) => {
         db.run(
             `CREATE TABLE IF NOT EXISTS elements (
-                expressid INT,
                 globalid TEXT NOT NULL UNIQUE,
-                vocabulary TEXT
+                vocabulary TEXT,
+                RUS_DivisionNumber TEXT,
+                RUS_StartDatePlan TEXT,
+                RUS_StartDateIs TEXT,
+                RUS_EndDatePlan TEXT,
+                RUS_EndDateIs TEXT
             )`,
             (err) => {
                 if (err) {
@@ -78,9 +82,9 @@ async function initializeDatabase() {
 }
 
 // Функция для добавления строки в таблицу elements
-async function addElement(expressid, globalid, vocabulary) {
+async function addElement(filename, globalid, divisionNumber, startDatePlan, startDateIs, endDatePlan, endDateIs) {
     if (!db) {
-        throw new Error('База данных не подключена.');
+      connectToDatabase(filename);
     }
 
     return new Promise((resolve, reject) => {
@@ -96,8 +100,12 @@ async function addElement(expressid, globalid, vocabulary) {
                 } else {
                     // Если строки с таким globalid нет, добавляем новую запись
                     db.run(
-                        `INSERT INTO elements (expressid, globalid, vocabulary) VALUES (?, ?, ?)`,
-                        [expressid, globalid, vocabulary],
+                        `INSERT INTO elements (
+                            globalid, RUS_DivisionNumber, 
+                            RUS_StartDatePlan, RUS_StartDateIs, 
+                            RUS_EndDatePlan, RUS_EndDateIs
+                        ) VALUES (?, ?, ?, ?, ?, ?)`,
+                        [globalid, divisionNumber, startDatePlan, startDateIs, endDatePlan, endDateIs],
                         (err) => {
                             if (err) {
                                 reject(`Ошибка при добавлении строки: ${err.message}`);
@@ -113,9 +121,9 @@ async function addElement(expressid, globalid, vocabulary) {
 }
 
 // Функция для получения данных по globalid
-async function getElementByGlobalId(globalid) {
+async function getElementByGlobalId(filename, globalid) {
     if (!db) {
-        throw new Error('База данных не подключена.');
+      connectToDatabase(filename);
     }
 
     return new Promise((resolve, reject) => {
@@ -133,10 +141,65 @@ async function getElementByGlobalId(globalid) {
     });
 }
 
+// Функция для обновления записи
+async function updateElement(fileName, globalid, fieldsToUpdate) {
+  if (!db) {
+    connectToDatabase(filename);
+  }
+
+  return new Promise((resolve, reject) => {
+      // Проверяем, существует ли строка с таким globalid
+      db.get(
+          `SELECT globalid FROM elements WHERE globalid = ?`,
+          [globalid],
+          (err, row) => {
+              if (err) {
+                  reject(`Ошибка при проверке наличия globalid: ${err.message}`);
+              } else if (!row) {
+                  resolve(`Строка с globalid "${globalid}" не найдена.`);
+              } else {
+                  // Формируем SQL-запрос динамически
+                  const updates = [];
+                  const values = [];
+
+                  // Проходим по всем полям, которые нужно обновить
+                  for (const [key, value] of Object.entries(fieldsToUpdate)) {
+                      if (value !== undefined && value !== null) { // Проверяем, что значение есть
+                          updates.push(`${key} = ?`); // Добавляем поле в запрос
+                          values.push(value); // Добавляем значение
+                      }
+                  }
+
+                  // Если нечего обновлять, возвращаем сообщение
+                  if (updates.length === 0) {
+                      resolve('Нет полей для обновления.');
+                      return;
+                  }
+
+                  // Добавляем globalid в конец массива значений
+                  values.push(globalid);
+
+                  // Формируем финальный SQL-запрос
+                  const sql = `UPDATE elements SET ${updates.join(', ')} WHERE globalid = ?`;
+
+                  // Выполняем запрос
+                  db.run(sql, values, (err) => {
+                      if (err) {
+                          reject(`Ошибка при обновлении строки: ${err.message}`);
+                      } else {
+                          resolve(`Строка с globalid "${globalid}" успешно обновлена.`);
+                      }
+                  });
+              }
+          }
+      );
+  });
+}
 // Экспорт функций
 module.exports = {
     createDatabase,
     connectToDatabase,
     addElement,
     getElementByGlobalId,
+    updateElement,
 };
