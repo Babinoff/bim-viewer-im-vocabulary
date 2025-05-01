@@ -9,13 +9,79 @@ function getDbPath(filename) {
     return path.join(process.cwd(), 'models', `${filename}.sqlite`);
 }
 
+async function getDatabaseInfo(filename) {
+    const dbPath = path.join(process.cwd(), 'models', `${filename}.sqlite`);
+    
+    // 1. Проверяем существование файла
+    if (!fs.existsSync(dbPath)) {
+        return {
+            exists: false,
+            message: `Файл базы данных "${filename}.sqlite" не найден`,
+            rowCount: null
+        };
+    }
+
+    let db;
+    try {
+        db = new sqlite3.Database(dbPath);
+        
+        // 2. Проверяем существование таблицы elements
+        const tableExists = await new Promise((resolve, reject) => {
+            db.get(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='elements'",
+                (err, row) => {
+                    if (err) reject(err);
+                    resolve(!!row);
+                }
+            );
+        });
+
+        if (!tableExists) {
+            return {
+                exists: true,
+                tableExists: false,
+                message: `Таблица "elements" не найдена в базе данных`,
+                rowCount: null
+            };
+        }
+
+        // 3. Получаем количество строк
+        const rowCount = await new Promise((resolve, reject) => {
+            db.get(
+                "SELECT COUNT(*) as count FROM elements",
+                (err, row) => {
+                    if (err) reject(err);
+                    resolve(row ? row.count : 0);
+                }
+            );
+        });
+
+        return {
+            exists: true,
+            tableExists: true,
+            message: `База данных содержит ${rowCount} записей в таблице elements`,
+            rowCount: rowCount
+        };
+
+    } catch (err) {
+        return {
+            exists: true,
+            error: true,
+            message: `Ошибка при проверке базы данных: ${err.message}`,
+            rowCount: null
+        };
+    } finally {
+        if (db) db.close();
+    }
+}
+
 // Функция для создания файла базы данных
 async function createDatabase(filename) {
     const dbPath = getDbPath(filename);
 
     // Проверяем, существует ли файл базы данных
     if (fs.existsSync(dbPath)) {
-        throw new Error(`Файл базы данных "${filename}.sqlite" уже существует.`);
+      return `Файл базы данных "${filename}.sqlite" уже существует.`;
     }
 
     // Убедимся, что папка models существует
@@ -42,7 +108,7 @@ async function connectToDatabase(filename) {
 
     // Проверяем, существует ли файл базы данных
     if (!fs.existsSync(dbPath)) {
-        throw new Error(`Файл базы данных "${filename}.sqlite" не существует.`);
+      console.error(`Файл базы данных "${filename}.sqlite" не существует.`);
     }
 
     // Подключаемся к базе данных
@@ -197,9 +263,10 @@ async function updateElement(fileName, globalid, fieldsToUpdate) {
 }
 // Экспорт функций
 module.exports = {
-    createDatabase,
-    connectToDatabase,
-    addElement,
-    getElementByGlobalId,
-    updateElement,
+  getDatabaseInfo,
+  createDatabase,
+  connectToDatabase,
+  addElement,
+  getElementByGlobalId,
+  updateElement,
 };

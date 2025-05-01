@@ -23,7 +23,7 @@ async function onSceneSelected(e) {
   // let test2 = await metaManager.getElementGuid(elNum)
   let elemetMeta = await metaManager.getElementMetaByNumbers(elNum)
   const fileName = metaManager.models.get("fb5ef230-ac88-671d-9d03-3a1878afdd89")?.name
-  console.log(elemetMeta, fileName);
+  console.log("elemetMeta.Category", elemetMeta.Category, fileName);
   const response = await fetch(`http://localhost:4000/get-vocabulary/?globalid=${elemetMeta.ElementGuid}&fileName=${fileName}`, {
     method: 'GET',
     headers: {
