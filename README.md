@@ -2,6 +2,9 @@
 https://github.com/jpatacas/ifcjs-viewer  
 https://github.com/tangl-services/tangl-dev/tree/main/tangl-demo-playground
 
+Видео по концепции:  
+https://youtu.be/uUC4GL16YdQ?si=pdtIQ_nC9_K4jPjY
+
 # Интеграция BIM-моделей с расширенными данными через SQLite и веб-вьюверы
 
 ## MVP системы
@@ -26,9 +29,9 @@ https://github.com/tangl-services/tangl-dev/tree/main/tangl-demo-playground
 | **Поле**             | **Тип** | **Описание**                                                                 |
 |-----------------------|---------|-----------------------------------------------------------------------------|
 | `globalid`            | TEXT    | Уникальный идентификатор элемента в IFC-модели (`GlobalID`). Обязательное поле, используется для связи с BIM-объектом. |
-| `vocabulary`          | TEXT    | Классификатор или тип элемента (например, "Стена", "Окно"). Может ссылаться на внешний словарь. |
 | `RUS_DivisionNumber`  | TEXT    | Номер раздела/позиции по российскому классификатору (например, ГОСТ или СПДС). |
 | `RUS_StartDatePlan`   | TEXT    | Плановая дата начала работ (формат: `YYYY-MM-DD` или произвольная строка). |
 | `RUS_StartDateIs`     | TEXT    | Фактическая дата начала работ. |
 | `RUS_EndDatePlan`     | TEXT    | Плановая дата завершения работ. |
 | `RUS_EndDateIs`       | TEXT    | Фактическая дата завершения работ. |
+| `vocabulary`          | TEXT    | тестовое поле |
