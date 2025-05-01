@@ -86,6 +86,7 @@ async function addVocabulary(fileName, globalid) {
  */
 async function updateVocabulary(fileName, globalid, fields) {
   try {
+    console.log("updateVocabulary fileName, globalid, fields", fileName, globalid, fields)
     const response = await fetch(`${API_BASE_URL}/update-vocabulary`, {
       method: 'POST',
       headers: {
@@ -94,7 +95,11 @@ async function updateVocabulary(fileName, globalid, fields) {
       body: JSON.stringify({
         fileName: fileName,
         globalid: globalid,
-        ...fields
+        DivisionNumberVocabulary: fields.input_DivisionNumber,
+        StartDatePlanVocabulary: fields.input_StartDatePlan,
+        StartDateIsVocabulary: fields.input_StartDateIs,
+        EndDatePlanVocabulary: fields.input_EndDatePlan,
+        EndDateIsVocabulary: fields.input_EndDateIs
       }),
     });
     

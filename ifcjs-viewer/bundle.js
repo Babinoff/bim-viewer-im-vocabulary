@@ -112784,6 +112784,7 @@ async function addVocabulary(fileName, globalid) {
  */
 async function updateVocabulary(fileName, globalid, fields) {
   try {
+    console.log("updateVocabulary fileName, globalid, fields", fileName, globalid, fields);
     const response = await fetch(`${API_BASE_URL}/update-vocabulary`, {
       method: 'POST',
       headers: {
@@ -112792,7 +112793,11 @@ async function updateVocabulary(fileName, globalid, fields) {
       body: JSON.stringify({
         fileName: fileName,
         globalid: globalid,
-        ...fields
+        DivisionNumberVocabulary: fields.input_DivisionNumber,
+        StartDatePlanVocabulary: fields.input_StartDatePlan,
+        StartDateIsVocabulary: fields.input_StartDateIs,
+        EndDatePlanVocabulary: fields.input_EndDatePlan,
+        EndDateIsVocabulary: fields.input_EndDateIs
       }),
     });
     
@@ -112861,13 +112866,12 @@ class GUIManager {
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
     
-    this.globalidVocabulary = null;
+    this.globalid = null;
   }
 
   // Properties Menu Methods
   async createPropertiesMenu(props) {
     this.inputForm.reset();
-    this.globalidVocabulary = null;
     
     // Reset input disabled states
     [this.input_DivisionNumber, this.input_StartDatePlan, 
@@ -113032,7 +113036,7 @@ class GUIManager {
     
     const nodeElement = this.createNestedChild(parent, node);
     children.forEach((child) => {
-      this.constructTreeMenuNode(nodeElement, child);
+      this.constructTreeMenuNode(nodeElement, child, needAddVocabulaty);
     });
   }
 
@@ -113547,9 +113551,10 @@ const currentProjectID = url.searchParams.get("id"); //bimserver project id - us
 
 const scene = viewer.context.getScene(); //for showing/hiding categories
 
-let path;
-let fileName;
-let modelInfo = {
+let _path;
+let _fileName;
+let _globalid;
+let _modelInfo = {
   exists: false,
   message: ``,
   rowCount: null
@@ -113557,8 +113562,8 @@ let modelInfo = {
 
 for (let proj of projects) {
   if (proj.id === currentProjectID) {
-    fileName = proj.name;
-    path = "./models/" + fileName + ".ifc"; // get path into this /get-model-info
+    _fileName = proj.name;
+    _path = "./models/" + _fileName + ".ifc"; // get path into this /get-model-info
     try {
       // const responseInfo = await fetch(`http://localhost:4000/get-model-info/?fileName=${fileName}`, {
       //   method: 'GET',
@@ -113571,8 +113576,8 @@ for (let proj of projects) {
       //   console.error(`HTTP error! status: ${responseInfo.status}`);
       // }
       // Парсинг JSON данных
-      const modelInfo = await api.getModelInfo(fileName);
-      
+      const modelInfo = await api.getModelInfo(_fileName);
+      console.log("modelInfo", modelInfo);
       if (modelInfo.exists == false){
         // const response = await fetch('http://localhost:4000/create-vocabulary', {
         //   method: 'POST',
@@ -113583,7 +113588,7 @@ for (let proj of projects) {
         //     modelname: fileName
         //   }),
         // });
-        const result = await api.createVocabulary(fileName);
+        const result = await api.createVocabulary(_fileName);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -113595,7 +113600,7 @@ const guiManager = new GUIManager(
   viewer, 
   scene, 
   api, 
-  fileName, 
+  _fileName, 
   categories
 );
 
@@ -113608,10 +113613,10 @@ async function loadIfc(url) {
   model.removeFromParent(); //for ifc categories filter
   const ifcProject = await viewer.IFC.getSpatialStructure(model.modelID);
   await guiManager.setupAllCategories(); //for ifc categories filter
-  guiManager.createTreeMenu(ifcProject, modelInfo);
+  guiManager.createTreeMenu(ifcProject, _modelInfo);
 }
 
-loadIfc(path);
+loadIfc(_path);
 
 //UI elements
 
@@ -113629,10 +113634,12 @@ toolbarBottom();
 window.onmousemove = () => viewer.IFC.selector.prePickIfcItem();
 
 window.ondblclick = async () => {
-  const result = await viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
-  if (!result) return;
-  const { modelID, id } = result;
+  const expressID = await viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
+  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", expressID);
+  if (!expressID) return;
+  const { modelID, id } = expressID;
   const props = await viewer.IFC.getProperties(modelID, id, true, false);
+  _globalid = encodeURIComponent(props.GlobalId.value);
 
   guiManager.createPropertiesMenu(props);
 
@@ -113861,21 +113868,20 @@ for (let i = 0; i < toggler.length; i++) {
 const dialog = document.getElementById("dialog");
 // const inputForm = document.getElementById("inputForm");
 
-let globalidVocabulary;
-
-// const input_DivisionNumber = document.getElementById("input_DivisionNumber");
-// const input_StartDatePlan = document.getElementById("input_StartDatePlan");
-// const input_StartDateIs = document.getElementById("input_StartDateIs");
-// const input_EndDatePlan = document.getElementById("input_EndDatePlan");
-// const input_EndDateIs = document.getElementById("input_EndDateIs");
-
-
-dialog.addEventListener('submit', (event) => {
+dialog.addEventListener('submit', async (event) => {
   console.log("addEventListener", event);
   event.preventDefault(); // Отменяем стандартное поведение формы
+  const fields = {
+    input_DivisionNumber: document.getElementById("input_DivisionNumber").value,
+    input_StartDatePlan: document.getElementById("input_StartDatePlan").value,
+    input_StartDateIs: document.getElementById("input_StartDateIs").value,
+    input_EndDatePlan: document.getElementById("input_EndDatePlan").value,
+    input_EndDateIs: document.getElementById("input_EndDateIs").value
+  };
+  console.log("addEventListener fields", fields);
   try {
     dialog.close();
-    api.updateVocabulary(fileName, globalidVocabulary);
+    api.updateVocabulary(_fileName, _globalid, fields);
   } catch (error) {
     console.error('Error:', error);
     // alert('Connection error!');

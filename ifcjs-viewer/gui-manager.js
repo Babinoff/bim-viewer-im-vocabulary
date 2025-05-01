@@ -21,13 +21,12 @@ export class GUIManager {
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
     
-    this.globalidVocabulary = null;
+    this.globalid = null;
   }
 
   // Properties Menu Methods
   async createPropertiesMenu(props) {
     this.inputForm.reset();
-    this.globalidVocabulary = null;
     
     // Reset input disabled states
     [this.input_DivisionNumber, this.input_StartDatePlan, 
@@ -192,7 +191,7 @@ export class GUIManager {
     
     const nodeElement = this.createNestedChild(parent, node);
     children.forEach((child) => {
-      this.constructTreeMenuNode(nodeElement, child);
+      this.constructTreeMenuNode(nodeElement, child, needAddVocabulaty);
     });
   }
 
