@@ -3,9 +3,16 @@ const cors = require('cors');
 const { create } = require('xmlbuilder2');
 const fs = require('fs').promises;
 const { getDatabaseInfo, createDatabase, connectToDatabase, addElement, getElementByGlobalId, updateElement} = require('./db');
+const { Mistral } = require('@mistralai/mistralai');
+require('dotenv').config();
 
 const app = express();
 const port = 4000;
+
+const apiKey = process.env.MISTRAL_API_KEY;
+const agentId = process.env.MISTRAL_AGENT_KSI;
+const client = new Mistral({apiKey: apiKey});
+const ksiOcrFileId = 'f3ec9b24-5697-4038-af27-5cb27bae6fb7';
 
 // fetchToken()
 // const companies = fetchCompanies()
@@ -138,6 +145,80 @@ app.get('/get-vocabulary', async (req, res) => {
     // res.status(200).json({ success: true });
   } catch (error) {
     console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/get-from-ai', async (req, res) => {
+  try {
+    // Новая валидация данных
+    console.log("/get-from-ai req.body", req.query)
+    if (!req.query || !req.query.ifcClass || !req.query.elementType) {
+      const errorMessage = 'Invalid data format. Required fields: ifcClass elementType' 
+      console.error("/get-from-ai", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage
+      });
+    }
+    const ksiOcrFileUrl = await client.files.getSignedUrl({fileId: ksiOcrFileId});
+    console.log("ksiOcrFileUrl", ksiOcrFileUrl)
+    const ifcClass = req.query.ifcClass;
+    const elementType = req.query.elementType;
+    // const response = await fetch('https://api.mistral.ai/v1/agents/completions', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     'Authorization': `Bearer ${apiKey}` // Замените на ваш API ключ
+    //   },
+    //   body: JSON.stringify({
+    //     agent_id: agentId,
+    //     messages: [
+    //       {
+    //         role: "user", // по умолчанию "user"
+    //         content: [
+    //           // Текстовый запрос как объект
+    //           {
+    //             type: "text",
+    //             text: `какой класс КСИ для ${ifcClass} ${elementType}`
+    //           },
+    //           // Документ как объект
+    //           {
+    //             type: "document_url",
+    //             document_url: ksiOcrFileUrl.url, // Только URL-строка, без объекта {url: ...}
+    //             document_name: "KSI-IFC.pdf"
+    //           }
+    //         ]
+    //       }
+    //     ]
+    //   })
+    // });
+    // const chatResponse = await response.json();
+    // console.log("chatResponse", JSON.stringify(chatResponse));
+
+    const chatResponse = await client.agents.complete({
+      agentId: agentId,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `какой класс КСИ для ${req.query.ifcClass} ${req.query.elementType}`,
+            },
+            {
+              type: "document_url",
+              documentUrl: ksiOcrFileUrl.url,
+            },
+          ]
+        },
+      ],
+    });
+    const ksiKlass = chatResponse.choices[0].message.content
+    // console.log("ksiKlass:", ksiKlass);
+    res.status(200).json(ksiKlass);
+  } catch (error) {
+    console.error('Error:', error);
+    // console.error('Error:', JSON.stringify(error));
     res.status(500).json({ error: 'Internal server error' });
   }
 });

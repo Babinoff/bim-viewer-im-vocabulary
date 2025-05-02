@@ -1,5 +1,7 @@
 nodejs-server/node_modules
 ifcjs-viewer/node_modules
 tangl-demo-playground1/node_modules
+/node_modules
 tangl-dev
 Renga коттедж для сериала.rnp
+.env

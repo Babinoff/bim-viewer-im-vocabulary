@@ -7,20 +7,17 @@ export class GUIManager {
     this.fileName = fileName;
     this.categories = categories;
     this.subsets = {};
-    
     // Элементы DOM, которые должны быть переданы или найдены
     // this.propsGUI = document.getElementById("ifc-property-menu-root");
     this.inputForm = document.getElementById('inputForm');
     this.dialog = document.getElementById('dialog');
     this.propertiesButton = document.getElementById('properties-button');
-    
     // Input элементы
     this.input_DivisionNumber = document.getElementById("input_DivisionNumber");
     this.input_StartDatePlan = document.getElementById("input_StartDatePlan");
     this.input_StartDateIs = document.getElementById("input_StartDateIs");
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
-    
     this.globalid = null;
   }
 
@@ -48,9 +45,9 @@ export class GUIManager {
     }
 
     // Prepare properties for display
-    props.psets = JSON.stringify(props.psets);
-    props.mats = JSON.stringify(props.mats);
-    props.type = JSON.stringify(props.type);
+    // props.psets = JSON.stringify(props.psets);
+    // props.mats = JSON.stringify(props.mats);
+    // props.type = JSON.stringify(props.type);
 
     // Create property entries
     for (let key in props) {
@@ -98,7 +95,7 @@ export class GUIManager {
 
   // DOM Utilities
   removeAllChildren(element, test) {
-    console.log("removeAllChildren element", test, element)
+    // console.log("removeAllChildren element", test, element)
     while (element.firstChild) {
       element.removeChild(element.firstChild);
     }
@@ -150,48 +147,46 @@ export class GUIManager {
   }
 
   // Tree Menu Methods
-  createTreeMenu(ifcProject, modelInfo) {
+  async createTreeMenu(ifcProject, modelInfo, numberOfElements) {
     const root = document.getElementById("tree-root");
     this.removeAllChildren(root, "createTreeMenu");
     const ifcProjectNode = this.createNestedChild(root, ifcProject);
     const ifcElements = ifcProject.children;
-    if (ifcElements.length == modelInfo.rowCount){
-      ifcElements.forEach((child) => {
-        this.constructTreeMenuNode(ifcProjectNode, child, false);
-      });
-    }
-    else {
-      ifcElements.forEach((child) => {
-        this.constructTreeMenuNode(ifcProjectNode, child, true);
-      });
-    }
-
+    ifcElements.forEach((child) => {
+      this.constructTreeMenuNode(ifcProjectNode, child);
+    });
   }
 
   nodeToString(node) {
     return `${node.type} - ${node.expressID}`;
   }
 
-  async constructTreeMenuNode(parent, node, needAddVocabulaty) {
+  async constructTreeMenuNode(parent, node) {
     const children = node.children;
-    const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
-    
-    if (needAddVocabulaty){
-      try {
-        await this.api.addVocabulary(this.fileName, props.GlobalId.value);
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    }
-
     if (children.length === 0) {
       this.createSimpleChild(parent, node);
       return;
     }
-    
     const nodeElement = this.createNestedChild(parent, node);
     children.forEach((child) => {
-      this.constructTreeMenuNode(nodeElement, child, needAddVocabulaty);
+      this.constructTreeMenuNode(nodeElement, child);
+    });
+  }
+
+  async constructVocabulary(node) {
+    const children = node.children;
+    const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
+    // console.log('constructTreeMenuNode addVocabulary')
+    try {
+      await this.api.addVocabulary(this.fileName, props.GlobalId.value);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+    if (children.length === 0) {
+      return;
+    }
+    children.forEach((child) => {
+      this.constructVocabulary(child);
     });
   }
 

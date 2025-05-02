@@ -112834,13 +112834,34 @@ async function getVocabulary(fileName, globalid) {
   }
 }
 
+async function getFromAi(ifcClass, elementType) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-from-ai/?ifcClass=${ifcClass}&elementType=${elementType}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching vocabulary:', error);
+    throw error;
+  }
+}
+
 // Экспорт всех методов
 var api = {
   getModelInfo,
   createVocabulary,
   addVocabulary,
   updateVocabulary,
-  getVocabulary
+  getVocabulary,
+  getFromAi
 };
 
 // GUI Manager Library
@@ -112852,20 +112873,17 @@ class GUIManager {
     this.fileName = fileName;
     this.categories = categories;
     this.subsets = {};
-    
     // Элементы DOM, которые должны быть переданы или найдены
     // this.propsGUI = document.getElementById("ifc-property-menu-root");
     this.inputForm = document.getElementById('inputForm');
     this.dialog = document.getElementById('dialog');
     this.propertiesButton = document.getElementById('properties-button');
-    
     // Input элементы
     this.input_DivisionNumber = document.getElementById("input_DivisionNumber");
     this.input_StartDatePlan = document.getElementById("input_StartDatePlan");
     this.input_StartDateIs = document.getElementById("input_StartDateIs");
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
-    
     this.globalid = null;
   }
 
@@ -112893,9 +112911,9 @@ class GUIManager {
     }
 
     // Prepare properties for display
-    props.psets = JSON.stringify(props.psets);
-    props.mats = JSON.stringify(props.mats);
-    props.type = JSON.stringify(props.type);
+    // props.psets = JSON.stringify(props.psets);
+    // props.mats = JSON.stringify(props.mats);
+    // props.type = JSON.stringify(props.type);
 
     // Create property entries
     for (let key in props) {
@@ -112943,7 +112961,7 @@ class GUIManager {
 
   // DOM Utilities
   removeAllChildren(element, test) {
-    console.log("removeAllChildren element", test, element);
+    // console.log("removeAllChildren element", test, element)
     while (element.firstChild) {
       element.removeChild(element.firstChild);
     }
@@ -112995,48 +113013,46 @@ class GUIManager {
   }
 
   // Tree Menu Methods
-  createTreeMenu(ifcProject, modelInfo) {
+  async createTreeMenu(ifcProject, modelInfo, numberOfElements) {
     const root = document.getElementById("tree-root");
     this.removeAllChildren(root, "createTreeMenu");
     const ifcProjectNode = this.createNestedChild(root, ifcProject);
     const ifcElements = ifcProject.children;
-    if (ifcElements.length == modelInfo.rowCount){
-      ifcElements.forEach((child) => {
-        this.constructTreeMenuNode(ifcProjectNode, child, false);
-      });
-    }
-    else {
-      ifcElements.forEach((child) => {
-        this.constructTreeMenuNode(ifcProjectNode, child, true);
-      });
-    }
-
+    ifcElements.forEach((child) => {
+      this.constructTreeMenuNode(ifcProjectNode, child);
+    });
   }
 
   nodeToString(node) {
     return `${node.type} - ${node.expressID}`;
   }
 
-  async constructTreeMenuNode(parent, node, needAddVocabulaty) {
+  async constructTreeMenuNode(parent, node) {
     const children = node.children;
-    const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
-    
-    if (needAddVocabulaty){
-      try {
-        await this.api.addVocabulary(this.fileName, props.GlobalId.value);
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    }
-
     if (children.length === 0) {
       this.createSimpleChild(parent, node);
       return;
     }
-    
     const nodeElement = this.createNestedChild(parent, node);
     children.forEach((child) => {
-      this.constructTreeMenuNode(nodeElement, child, needAddVocabulaty);
+      this.constructTreeMenuNode(nodeElement, child);
+    });
+  }
+
+  async constructVocabulary(node) {
+    const children = node.children;
+    const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
+    // console.log('constructTreeMenuNode addVocabulary')
+    try {
+      await this.api.addVocabulary(this.fileName, props.GlobalId.value);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+    if (children.length === 0) {
+      return;
+    }
+    children.forEach((child) => {
+      this.constructVocabulary(child);
     });
   }
 
@@ -113514,10 +113530,6 @@ const projects = [
     name: "Renga коттедж для сериала",
     id: "1000011",
   },
-  {
-    name: "ЗАГС г. Бобров_версия Renga 8.2",
-    id: "1000012",
-  },
 ];
 
 // List of categories names
@@ -113565,30 +113577,11 @@ for (let proj of projects) {
     _fileName = proj.name;
     _path = "./models/" + _fileName + ".ifc"; // get path into this /get-model-info
     try {
-      // const responseInfo = await fetch(`http://localhost:4000/get-model-info/?fileName=${fileName}`, {
-      //   method: 'GET',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   }
-      // });
-      // // Проверка статуса ответа
-      // if (!responseInfo.ok) {
-      //   console.error(`HTTP error! status: ${responseInfo.status}`);
-      // }
-      // Парсинг JSON данных
-      const modelInfo = await api.getModelInfo(_fileName);
-      console.log("modelInfo", modelInfo);
-      if (modelInfo.exists == false){
-        // const response = await fetch('http://localhost:4000/create-vocabulary', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     modelname: fileName
-        //   }),
-        // });
+      _modelInfo = await api.getModelInfo(_fileName);
+      // console.log("modelInfo", _modelInfo)
+      if (_modelInfo.exists == false){
         const result = await api.createVocabulary(_fileName);
+        // console.log("createVocabulary result", result)
       }
     } catch (error) {
       console.error('Error:', error);
@@ -113609,11 +113602,31 @@ async function loadIfc(url) {
   const model = await viewer.IFC.loadIfcUrl(url);
   // Add dropped shadow and post-processing efect
   await viewer.shadowDropper.renderShadow(model.modelID);
-  viewer.context.renderer.postProduction.active = true;
+  // viewer.context.renderer.postProduction.active = true;
   model.removeFromParent(); //for ifc categories filter
   const ifcProject = await viewer.IFC.getSpatialStructure(model.modelID);
   await guiManager.setupAllCategories(); //for ifc categories filter
-  guiManager.createTreeMenu(ifcProject, _modelInfo);
+  const modelInfo = await api.getModelInfo(_fileName);
+  const structure = await viewer.IFC.loader.ifcManager.getSpatialStructure(model.modelID);
+  // Рекурсивный подсчёт элементов в структуре
+  function countElements(item) {
+      let count = item.children.length;
+      for (const child of item.children) {
+          count += countElements(child);
+      }
+      return count;
+  }
+  const numberOfElements = countElements(structure);
+  console.log('loadIfc numberOfElements modelInfo.rowCount', numberOfElements, modelInfo.rowCount);
+  const btnGetData = document.getElementById("getData");
+  console.log("btnGetData.onclick", btnGetData);
+  if (numberOfElements != modelInfo.rowCount){
+      //создавать элементы словаря
+    structure.children.forEach((child) => {
+      guiManager.constructVocabulary(child);
+    });
+  }
+  await guiManager.createTreeMenu(ifcProject, _modelInfo, numberOfElements);
 }
 
 loadIfc(_path);
@@ -113725,151 +113738,12 @@ for (let i = 0; i < toggler.length; i++) {
   };
 }
 
-// Gets the name of a category
-// function getName(category) {
-//   const names = Object.keys(categories);
-//   return names.find((name) => categories[name] === category);
-// }
-
-// // Gets all the items of a category
-// async function getAll(category) {
-//   return viewer.IFC.loader.ifcManager.getAllItemsOfType(0, category, false);
-// }
-
-// // Creates a new subset containing all elements of a category
-// async function newSubsetOfType(category) {
-//   const ids = await getAll(category);
-//   return viewer.IFC.loader.ifcManager.createSubset({
-//     modelID: 0,
-//     scene,
-//     ids,
-//     removePrevious: true,
-//     customID: category.toString(),
-//   });
-// }
-
-// async function setupAllCategories() {
-//   const allCategories = Object.values(categories);
-//   for (let i = 0; i < allCategories.length; i++) {
-//     const category = allCategories[i];
-//     await setupCategory(category);
-//   }
-// }
-
-// // Creates a new subset and configures the checkbox
-// async function setupCategory(category) {
-//   subsets[category] = await newSubsetOfType(category);
-//   setupCheckBox(category);
-// }
-
-// // Sets up the checkbox event to hide / show elements
-// function setupCheckBox(category) {
-//   const name = getName(category);
-//   const checkBox = document.getElementById(name);
-//   checkBox.addEventListener("change", (event) => {
-//     const checked = event.target.checked;
-//     const subset = subsets[category];
-//     if (checked) scene.add(subset);
-//     else subset.removeFromParent();
-//   });
-// }
-
-// function createTreeMenu(ifcProject) {
-//   const root = document.getElementById("tree-root");
-//   removeAllChildren(root);
-//   const ifcProjectNode = createNestedChild(root, ifcProject);
-//   const ifcElements = ifcProject.children;
-//   if (ifcElements.length == ){
-
-//   }
-//   ifcElements.forEach((child) => {
-//     constructTreeMenuNode(ifcProjectNode, child);
-//   });
-// }
-
-// function nodeToString(node) {
-//   return `${node.type} - ${node.expressID}`;
-// }
-
-// async function constructTreeMenuNode(parent, node) {
-//   const children = node.children;
-
-//   // запись элементов в справочник
-//   const props = await viewer.IFC.getProperties(0, node.expressID, true, false);
-//   // console.log(node.expressID, props.GlobalId.value);
-  
-//   try {
-//     await api.addVocabulary(fileName, props.GlobalId.value)
-//     // await saveVacabulary(props.GlobalId.value)
-//   } catch (error) {
-//     console.error('Error:', error);
-//     // alert('Connection error!');
-//   }
-
-//   if (children.length === 0) {
-//     createSimpleChild(parent, node);
-//     return;
-//   }
-//   const nodeElement = createNestedChild(parent, node);
-//   children.forEach((child) => {
-//     constructTreeMenuNode(nodeElement, child);
-//   });
-// }
-
-// function createNestedChild(parent, node) {
-//   const content = nodeToString(node);
-//   const root = document.createElement("li");
-//   createTitle(root, content);
-//   const childrenContainer = document.createElement("ul");
-//   childrenContainer.classList.add("nested");
-//   root.appendChild(childrenContainer);
-//   parent.appendChild(root);
-//   return childrenContainer;
-// }
-
-// function createTitle(parent, content) {
-//   const title = document.createElement("span");
-//   title.classList.add("caret");
-//   title.onclick = () => {
-//     title.parentElement
-//       .querySelector(".nested")
-//       .classList.toggle("tree-active");
-//     title.classList.toggle("caret-down");
-//   };
-//   title.textContent = content;
-//   parent.appendChild(title);
-// }
-
-// function createSimpleChild(parent, node) {
-//   const content = nodeToString(node);
-//   const childNode = document.createElement("li");
-//   childNode.classList.add("leaf-node");
-//   childNode.textContent = content;
-//   parent.appendChild(childNode);
-
-//   childNode.onmouseenter = () => {
-//     viewer.IFC.selector.prepickIfcItemsByID(0, [node.expressID]);
-//   };
-
-//   childNode.onclick = async () => {
-//     viewer.IFC.selector.pickIfcItemsByID(0, [node.expressID], true);
-
-//     let idsArray = [node.expressID];
-
-//     const props = await viewer.IFC.getProperties(0, idsArray[0], true, false);
-//     // console.log(props); //call the function here
-//     createPropertiesMenu(props);
-//     document.getElementById("ifc-property-menu").style.display = "initial";
-//     propertiesButton.classList.add("active");
-//   };
-// }
-
 //IFC properties menu functions
 const dialog = document.getElementById("dialog");
 // const inputForm = document.getElementById("inputForm");
 
 dialog.addEventListener('submit', async (event) => {
-  console.log("addEventListener", event);
+  // console.log("addEventListener", event)
   event.preventDefault(); // Отменяем стандартное поведение формы
   const fields = {
     input_DivisionNumber: document.getElementById("input_DivisionNumber").value,
@@ -113878,7 +113752,7 @@ dialog.addEventListener('submit', async (event) => {
     input_EndDatePlan: document.getElementById("input_EndDatePlan").value,
     input_EndDateIs: document.getElementById("input_EndDateIs").value
   };
-  console.log("addEventListener fields", fields);
+  // console.log("addEventListener fields", fields)
   try {
     dialog.close();
     api.updateVocabulary(_fileName, _globalid, fields);
@@ -113888,133 +113762,37 @@ dialog.addEventListener('submit', async (event) => {
   }
 });
 
-// async function saveVacabulary(globalid){
-//   const responsePost = await fetch('http://localhost:4000/add-vocabulary', {
-//     method: 'POST',
-//     headers: {
-//       'Content-Type': 'application/json',
-//     },
-//     body: JSON.stringify({
-//       fileName: fileName,
-//       globalid: encodeURIComponent(globalid)
-//     }),
-//   });
-//   const result = await responsePost.json();
-//   // console.log(result)
-// }
+const btnGetData = document.getElementById("getData");
+console.log("btnGetData.onclick", btnGetData);
 
-// async function updateVacabulary(globalid){
-//   const responsePost = await fetch('http://localhost:4000/update-vocabulary', {
-//     method: 'POST',
-//     headers: {
-//       'Content-Type': 'application/json',
-//     },
-//     body: JSON.stringify({
-//       fileName: fileName,
-//       globalid: globalid,
-//       DivisionNumberVocabulary: input_DivisionNumber.value,
-//       StartDatePlanVocabulary: input_StartDatePlan.value,
-//       StartDateIsVocabulary: input_StartDateIs.value,
-//       EndDatePlanVocabulary: input_EndDatePlan.value,
-//       EndDateIsVocabulary: input_EndDateIs.value
-//     }),
-//   });
-//   const result = await responsePost.json();
-//   // console.log(result)
-// }
+btnGetData.onclick = async function() {
+  try {
+    console.log("btnGetData.onclick");
+    const result = await api.getFromAi("ifcWall", "Перегородка");
+    console.log("btnGetData result",result);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
 
-// async function createPropertiesMenu(props) {
-//   inputForm.reset();
-//   globalidVocabulary = null;
-//   input_DivisionNumber.disabled = false;
-//   input_StartDatePlan.disabled = false;
-//   input_StartDateIs.disabled = false;
-//   input_EndDatePlan.disabled = false;
-//   input_EndDateIs.disabled = false;
-
-//   removeAllChildren(propsGUI);
-//   console.log("props",props)
-//   let fromVocabulary;
-//   try {
-//     globalid = encodeURIComponent(props.GlobalId.value);
-//     // const response = await fetch(`http://localhost:4000/get-vocabulary/?fileName=${fileName}&globalid=${globalid}`, {
-//     //   method: 'GET',
-//     //   headers: {
-//     //     'Content-Type': 'application/json',
-//     //   }
-//     // });
-//     // // Проверка статуса ответа
-//     // if (!response.ok) {
-//     //   console.error(`HTTP error! status: ${response.status}`);
-//     // }
-//     // Парсинг JSON данных
-//     const result = await api.getVocabulary(fileName, globalid);
-
-//     console.log("result",result)
-//     if (result != null){
-//       if (result.RUS_DivisionNumber){
-//         props.RUS_DivisionNumber = result.RUS_DivisionNumber;
-//         input_DivisionNumber.disabled = true;
-//       }
-//       if (result.RUS_StartDatePlan){
-//         props.RUS_StartDatePlan = result.RUS_StartDatePlan;
-//         input_StartDatePlan.disabled = true;
-//       }
-//       if (result.RUS_StartDateIs){
-//         props.RUS_StartDateIs = result.RUS_StartDateIs;
-//         input_StartDateIs.disabled = true;
-//       }
-//       if (result.RUS_EndDatePlan){
-//         props.RUS_EndDatePlan = result.RUS_EndDatePlan;
-//         input_EndDatePlan.disabled = true;
-//       }
-//       if (result.RUS_EndDateIs){
-//         props.RUS_EndDateIs = result.RUS_EndDateIs;
-//         input_EndDateIs.disabled = true;
-//       }
+// document.addEventListener('DOMContentLoaded', function() {
+//   const btnGetData = document.getElementById("getData");
+//   btnGetData.addEventListener('click', async (event) => {
+//     try {
+//       console.log("btnGetData addEventListener", event)
+//       event.preventDefault(); // Отменяем стандартное поведение формы
+//       const result = await api.getFromAi("ifcWall", "Перегородка")
+//       console.log("btnGetData result",result)
+//     } catch (error) {
+//       console.error('Error:', error);
 //     }
-
-
-//     // alert(result.success ? 'Action saved!' : 'Error: ' + result.error);
-//   } catch (error) {
-//     console.error('Error:', error);
-//     // alert('Connection error!');
+//   })
+//   // Можно также добавить обработчик для sendData
+//   const btnSendData = document.getElementById("sendData");
+//   if (btnSendData) {
+//       btnSendData.addEventListener('click', function() {
+//           // Логика отправки данных
+//           alert("Данные отправлены (из внешнего JS)");
+//       });
 //   }
-//   props.psets = JSON.stringify(props.psets);
-//   props.mats = JSON.stringify(props.mats);
-//   props.type = JSON.stringify(props.type);
-//   // delete props.psets;
-//   // delete props.mats;
-//   // delete props.type;
-//   // properties.mats = JSON.stringify(properties.mats);
-//   for (let key in props) {
-//     createPropertyEntry(key, props[key]);
-//   }
-//   // input.value = null;
-//   dialog.showModal();
-// }
-
-// function createPropertyEntry(key, value) {
-//   const propContainer = document.createElement("div");
-//   propContainer.classList.add("ifc-property-item");
-
-//   if (value === null || value === undefined) value = "undefined";
-//   else if (value.value) value = value.value;
-
-//   const keyElement = document.createElement("div");
-//   keyElement.textContent = key;
-//   propContainer.appendChild(keyElement);
-
-//   const valueElement = document.createElement("div");
-//   valueElement.classList.add("ifc-property-value");
-//   valueElement.textContent = value;
-//   propContainer.appendChild(valueElement);
-
-//   propsGUI.appendChild(propContainer);
-// }
-
-// function removeAllChildren(element) {
-//   while (element.firstChild) {
-//     element.removeChild(element.firstChild);
-//   }
-// }
+// });

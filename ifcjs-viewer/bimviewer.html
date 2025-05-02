@@ -56,6 +56,8 @@
   <body>
     <div id="viewer-container"></div>
     <script type="module" src="bundle.js"></script>
+    <script>
+    </script>
   </body>
   <dialog id="dialog">
     <form id="inputForm">
@@ -86,10 +88,40 @@
           <input id="input_EndDateIs" type="text" />
         </label>
       </p>
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Форма ввода данных</h2>
+
+        <div class="form-group">
+          <label for="name">Имя:</label>
+          <input type="text" id="name" placeholder="Введите ваше имя">
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="email" id="email" placeholder="Введите ваш email">
+        </div>
+
+        <div class="form-group">
+          <label for="message">Сообщение:</label>
+          <textarea id="message" rows="4"
+            placeholder="Введите ваше сообщение"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="info">Информация:</label>
+          <input type="text" id="info" readonly
+            placeholder="Здесь будет отображаться информация">
+        </div>
+
+        <div class="button-group">
+          <button id="getData" class="btn-secondary">Получить данные</button>
+          <button id="sendData" class="btn-primary">Отправить данные</button>
+        </div>
+      </div>
       <div>
         <input type="submit" id="js-close" value="Сохранить" />
       </div>
     </form>
   </dialog>
-
 </html>

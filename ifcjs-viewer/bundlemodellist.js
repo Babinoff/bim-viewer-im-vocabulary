@@ -75,10 +75,6 @@ const projects = [
     name: "Renga коттедж для сериала",
     id: "1000011",
   },
-  {
-    name: "ЗАГС г. Бобров_версия Renga 8.2",
-    id: "1000012",
-  },
 ];
 
 for (let proj of projects)
