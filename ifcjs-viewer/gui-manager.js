@@ -21,9 +21,6 @@ export class GUIManager {
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
     this.globalid = null;
-    this.props_type;
-    this.props_name;
-    this.props_mat;
   }
 
   // Properties Menu Methods

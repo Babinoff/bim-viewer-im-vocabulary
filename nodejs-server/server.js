@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { create } = require('xmlbuilder2');
 const fs = require('fs').promises;
-const { getDatabaseInfo, createDatabase, connectToDatabase, addElement, getElementByGlobalId, updateElement} = require('./db');
+const { getDatabaseInfo, createDatabase, connectToDatabase, addElement, getElementByGlobalId, updateElement, ensureColumnExists} = require('./db');
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
 
@@ -99,8 +99,8 @@ app.post('/update-vocabulary', async (req, res) => {
   try {
     // Новая валидация данных
     console.log("/update-vocabulary req.body", req.body)
-    if (!req.body || !req.body.globalid || !req.body.fileName) {
-      const errorMessage = 'Invalid data format. Required fields: globalid, fileName' 
+    if (!req.body || !req.body.globalid || !req.body.fileName || !req.body.fields) {
+      const errorMessage = 'Invalid data format. Required fields: globalid, fileName, fields' 
       console.error("/update-vocabulary", errorMessage);
       return res.status(400).json({ 
         error: errorMessage 
@@ -110,13 +110,14 @@ app.post('/update-vocabulary', async (req, res) => {
     console.log(await updateElement(
       req.body.fileName,
       decodeURIComponent(req.body.globalid), 
-      {
-        "RUS_DivisionNumber":req.body.DivisionNumberVocabulary,
-        "RUS_StartDatePlan":req.body.StartDatePlanVocabulary,
-        "RUS_StartDateIs":req.body.StartDateIsVocabulary,
-        "RUS_EndDatePlan":req.body.EndDatePlanVocabulary,
-        "RUS_EndDateIs":req.body.EndDateIsVocabulary,
-      }
+      req.body.fields
+      // {
+      //   "RUS_DivisionNumber":req.body.DivisionNumberVocabulary,
+      //   "RUS_StartDatePlan":req.body.StartDatePlanVocabulary,
+      //   "RUS_StartDateIs":req.body.StartDateIsVocabulary,
+      //   "RUS_EndDatePlan":req.body.EndDatePlanVocabulary,
+      //   "RUS_EndDateIs":req.body.EndDateIsVocabulary,
+      // }
     )); // Успешно добавится
     
     res.status(200).json({ success: true });
@@ -222,6 +223,34 @@ app.get('/get-from-ai', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+app.post('/save-ksi', async (req, res) => {
+  try {
+    // Новая валидация данных
+    console.log("/save-ksi req.body", req.body)
+    if (!req.body || !req.body.globalid || !req.body.fileName || !req.body.ksicode) {
+      const errorMessage = 'Invalid data format. Required fields: globalid, ksicode' 
+      console.error("/save-ksi", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage 
+      });
+    }
+    // Добавляем элементы
+    console.log(await updateElement(
+      req.body.fileName,
+      decodeURIComponent(req.body.globalid), 
+      {
+        "RUS_ElementCode": req.body.ksicode,
+      }
+    )); // Успешно добавится
+    
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 app.use(cors({
   origin: '*',

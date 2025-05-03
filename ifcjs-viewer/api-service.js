@@ -95,11 +95,12 @@ async function updateVocabulary(fileName, globalid, fields) {
       body: JSON.stringify({
         fileName: fileName,
         globalid: globalid,
-        DivisionNumberVocabulary: fields.input_DivisionNumber,
-        StartDatePlanVocabulary: fields.input_StartDatePlan,
-        StartDateIsVocabulary: fields.input_StartDateIs,
-        EndDatePlanVocabulary: fields.input_EndDatePlan,
-        EndDateIsVocabulary: fields.input_EndDateIs
+        fields: fields
+        // DivisionNumberVocabulary: fields.input_DivisionNumber,
+        // StartDatePlanVocabulary: fields.input_StartDatePlan,
+        // StartDateIsVocabulary: fields.input_StartDateIs,
+        // EndDatePlanVocabulary: fields.input_EndDatePlan,
+        // EndDateIsVocabulary: fields.input_EndDateIs
       }),
     });
     

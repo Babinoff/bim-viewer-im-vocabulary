@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 let db; // Переменная для хранения соединения с базой данных
+const tableName = "elements"
 
 // Функция для получения пути к файлу базы данных
 function getDbPath(filename) {
@@ -117,9 +118,9 @@ async function connectToDatabase(filename) {
             throw new Error(`Ошибка при подключении к базе данных: ${err.message}`);
         }
     });
-
     console.log(`Подключение к базе данных "${filename}.sqlite" успешно установлено.`);
     await initializeDatabase(); // Инициализация таблицы
+    // await ensureColumnExists("RUS_ElementCode");
 }
 
 // Инициализация таблицы elements
@@ -230,7 +231,7 @@ async function updateElement(fileName, globalid, fieldsToUpdate) {
 
                   // Проходим по всем полям, которые нужно обновить
                   for (const [key, value] of Object.entries(fieldsToUpdate)) {
-                      if (value !== undefined && value !== null) { // Проверяем, что значение есть
+                      if (value !== undefined && value !== null && value !== "") { // Проверяем, что значение есть
                           updates.push(`${key} = ?`); // Добавляем поле в запрос
                           values.push(value); // Добавляем значение
                       }
@@ -262,44 +263,52 @@ async function updateElement(fileName, globalid, fieldsToUpdate) {
   });
 }
 
-async function columnExists(db, tableName, columnName) {
+async function columnExists(columnName) {
   return new Promise((resolve, reject) => {
-      db.get(
+      db.all(
           `PRAGMA table_info(${tableName})`,
           (err, rows) => {
               if (err) return reject(err);
-              
-              const columnExists = rows.some(
-                  row => row.name === columnName
-              );
-              resolve(columnExists);
+              resolve(rows.some(row => row.name === columnName));
           }
       );
   });
 }
 
-// Добавление новой колонки в таблицу
-async function addColumn(db, tableName, columnDefinition) {
+// Добавление новой колонки (исправленная версия)
+async function addColumn(columnName, columnType = 'TEXT') {
   return new Promise((resolve, reject) => {
       db.run(
-          `ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`,
+          `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`,
           (err) => {
-              if (err) return reject(err);
+              if (err) {
+                  // Игнорируем ошибку "duplicate column", если колонка уже существует
+                  if (err.message.includes('duplicate column')) {
+                      console.log(`Колонка ${columnName} уже существует`);
+                      return resolve(false);
+                  }
+                  return reject(err);
+              }
               resolve(true);
           }
       );
   });
 }
 
-async function ensureColumnExists(db, tableName, columnName, columnType = 'TEXT') {
+// Безопасное добавление колонки
+async function ensureColumnExists(columnName, columnType = 'TEXT') {
   try {
-      const exists = await columnExists(db, tableName, columnName);
-      if (!exists) {
-          await addColumn(db, tableName, `${columnName} ${columnType}`);
-          console.log(`Колонка ${columnName} добавлена в таблицу ${tableName}`);
-          return true;
+      // Сначала проверяем существование
+      const exists = await columnExists(columnName);
+      if (exists) {
+          console.log(`Колонка ${columnName} уже существует`);
+          return false;
       }
-      return false;
+      
+      // Если не существует - добавляем
+      const result = await addColumn(columnName, columnType);
+      console.log(`Колонка ${columnName} успешно добавлена`);
+      return result;
   } catch (err) {
       console.error(`Ошибка при работе с колонкой ${columnName}:`, err);
       throw err;

@@ -65,6 +65,7 @@ let _fileName;
 let _model;
 let _globalid;
 let _expressID;
+let _elemKsiCode;
 let _modelInfo = {
   exists: false,
   message: ``,
@@ -244,17 +245,22 @@ const dialog = document.getElementById("dialog");
 // const inputForm = document.getElementById("inputForm");
 
 dialog.addEventListener('submit', async (event) => {
-  // console.log("addEventListener", event)
-  event.preventDefault(); // Отменяем стандартное поведение формы
-  const fields = {
-    input_DivisionNumber: document.getElementById("input_DivisionNumber").value,
-    input_StartDatePlan: document.getElementById("input_StartDatePlan").value,
-    input_StartDateIs: document.getElementById("input_StartDateIs").value,
-    input_EndDatePlan: document.getElementById("input_EndDatePlan").value,
-    input_EndDateIs: document.getElementById("input_EndDateIs").value
-  }
-  // console.log("addEventListener fields", fields)
   try {
+    // console.log("addEventListener", event)
+    event.preventDefault(); // Отменяем стандартное поведение формы
+    const fields = {
+      "RUS_DivisionNumber": document.getElementById("input_DivisionNumber").value,
+      "RUS_StartDatePlan": document.getElementById("input_StartDatePlan").value,
+      "RUS_StartDateIs": document.getElementById("input_StartDateIs").value,
+      "RUS_EndDatePlan": document.getElementById("input_EndDatePlan").value,
+      "RUS_EndDateIs": document.getElementById("input_EndDateIs").value
+      // input_DivisionNumber: document.getElementById("input_DivisionNumber").value,
+      // input_StartDatePlan: document.getElementById("input_StartDatePlan").value,
+      // input_StartDateIs: document.getElementById("input_StartDateIs").value,
+      // input_EndDatePlan: document.getElementById("input_EndDatePlan").value,
+      // input_EndDateIs: document.getElementById("input_EndDateIs").value
+    }
+    // console.log("addEventListener fields", fields)
     dialog.close();
     api.updateVocabulary(_fileName, _globalid, fields)
   } catch (error) {
@@ -266,7 +272,7 @@ dialog.addEventListener('submit', async (event) => {
 const btnGetData = document.getElementById("getData");
 btnGetData.onclick = async function() {
   try {
-    console.log("btnGetData.onclick")
+    console.log("btnGetData.onclick");
     if (_expressID) {
         console.log("ExpressID выделенного элемента:", _expressID);
     } else {
@@ -275,27 +281,40 @@ btnGetData.onclick = async function() {
     let props = await viewer.IFC.getProperties(0, _expressID.id, true, false);
     // console.log("btnGetData expressID", _expressID)
     props = await guiManager.normaliseProps(props);
-    console.log("btnGetData props", props)
-    console.log("props.type props.Name props.mat", props.type, props.Name, props.mat)
+    console.log("btnGetData props", props);
+    console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
     // const result = await api.getFromAi("ifcWall", "Перегородка")
-    const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`)
-    console.log("btnGetData result",result)
+    const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+    console.log("btnGetData result", result);
+    _elemKsiCode = result;
+    document.getElementById("ksi_info").value = _elemKsiCode;
   } catch (error) {
     console.error('Error:', error);
   }
 }
 
-viewer.IFC.selector.pickIfcItem(async (element) => {
-  if (!element) {
-      console.log("Выделение снято");
-      return;
+const btnSendData = document.getElementById("sendData");
+btnSendData.onclick = async function() {
+  try {
+    console.log("btnSendData.onclick")
+    const result = await api.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
+    console.log("btnSendData result", result);
+  } catch (error) {
+    console.error('Error:', error);
   }
+}
 
-  const expressID = element.expressID;
-  console.log("Выделен элемент с expressID:", expressID);
+// viewer.IFC.selector.pickIfcItem(async (element) => {
+//   if (!element) {
+//       console.log("Выделение снято");
+//       return;
+//   }
 
-  // Дополнительно можно получить его IFC-класс
-  const ifcManager = viewer.IFC.loader.ifcManager;
-  const props = await ifcManager.getItemProperties(0, expressID); // 0 = modelID (если модель одна)
-  console.log("IFC-класс:", props.type);
-});
+//   const expressID = element.expressID;
+//   console.log("Выделен элемент с expressID:", expressID);
+
+//   // Дополнительно можно получить его IFC-класс
+//   const ifcManager = viewer.IFC.loader.ifcManager;
+//   const props = await ifcManager.getItemProperties(0, expressID); // 0 = modelID (если модель одна)
+//   console.log("IFC-класс:", props.type);
+// });

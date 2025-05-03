@@ -90,34 +90,23 @@
       </p>
       <div class="modal-content">
         <span class="close">&times;</span>
-        <h2>Форма ввода данных</h2>
-
+        <h2>KIS info</h2>
+        <br>
         <div class="form-group">
-          <label for="name">Имя:</label>
-          <input type="text" id="name" placeholder="Введите ваше имя">
-        </div>
-
-        <div class="form-group">
-          <label for="email">Email:</label>
-          <input type="email" id="email" placeholder="Введите ваш email">
-        </div>
-
-        <div class="form-group">
-          <label for="message">Сообщение:</label>
-          <textarea id="message" rows="4"
-            placeholder="Введите ваше сообщение"></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="info">Информация:</label>
-          <input type="text" id="info" readonly
+          <label for="ksi_info">Код:</label>
+          <input type="text" id="ksi_info" readonly
             placeholder="Здесь будет отображаться информация">
         </div>
-
-        <div class="button-group">
-          <button id="getData" class="btn-secondary">Получить данные</button>
-          <button id="sendData" class="btn-primary">Отправить данные</button>
+        <br>
+        <div>
+          <button id="getData" type="button" class="btn-secondary">Запрос кода у ИИ</button>
         </div>
+        <br>
+        <div>
+          <button id="sendData" type="button" class="btn-primary">Записать код</button>
+        </div>
+      </div>
+      <br>
       </div>
       <div>
         <input type="submit" id="js-close" value="Сохранить" />
