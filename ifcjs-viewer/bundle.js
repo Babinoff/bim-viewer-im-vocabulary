@@ -112866,11 +112866,13 @@ var api = {
 
 // GUI Manager Library
 class GUIManager {
-  constructor(viewer, scene, api, fileName, categories) {
+  constructor(viewer, ifcManager, scene, api, fileName, categories,) {
     this.viewer = viewer;
+    this.ifcManager = ifcManager;
     this.scene = scene;
     this.api = api;
     this.fileName = fileName;
+    this.modelID;
     this.categories = categories;
     this.subsets = {};
     // Элементы DOM, которые должны быть переданы или найдены
@@ -112885,6 +112887,9 @@ class GUIManager {
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
     this.globalid = null;
+    this.props_type;
+    this.props_name;
+    this.props_mat;
   }
 
   // Properties Menu Methods
@@ -112911,16 +112916,47 @@ class GUIManager {
     }
 
     // Prepare properties for display
-    // props.psets = JSON.stringify(props.psets);
-    // props.mats = JSON.stringify(props.mats);
-    // props.type = JSON.stringify(props.type);
+    props.psets = JSON.stringify(props.psets);
+    console.log("props.psets", JSON.stringify(props.psets));
+    console.log("props.mats", JSON.stringify(props.mats));
+    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
+    props.Name = this.decodeUnicodeEscape(props.Name.value);
+    
+    const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
+    console.log("typeID:", typeID);
+    props.type = typeID;
+    // props = await this.normaliseProps(props);
 
     // Create property entries
     for (let key in props) {
+      console.log(key, props[key]);
       this.createPropertyEntry(key, props[key]);
     }
 
     this.dialog.showModal();
+  }
+
+  async normaliseProps(props) {
+    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
+    props.Name = this.decodeUnicodeEscape(props.Name.value);
+    const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
+    console.log("typeID:", typeID);
+    props.type = typeID;
+    return props;
+  }
+
+  decodeUnicodeEscape(str) {
+    // Заменяем все вхождения \X2\....\X0\ на соответствующие символы
+    return str.replace(/\\X2\\([0-9A-Fa-f]+)\\X0\\/g, function(match, hexCodes) {
+        let result = '';
+        // Разбиваем строку на группы по 4 символа (каждый символ UTF-16)
+        for (let i = 0; i < hexCodes.length; i += 4) {
+            const hex = hexCodes.substr(i, 4);
+            const codePoint = parseInt(hex, 16);
+            result += String.fromCharCode(codePoint);
+        }
+        return result;
+    });
   }
 
   updatePropsFromVocabulary(result, props) {
@@ -112974,12 +113010,12 @@ class GUIManager {
   }
 
   async getAll(category) {
-    return this.viewer.IFC.loader.ifcManager.getAllItemsOfType(0, category, false);
+    return this.ifcManager.getAllItemsOfType(0, category, false);
   }
 
   async newSubsetOfType(category) {
     const ids = await this.getAll(category);
-    return this.viewer.IFC.loader.ifcManager.createSubset({
+    return this.ifcManager.createSubset({
       modelID: 0,
       scene: this.scene,
       ids,
@@ -113565,7 +113601,9 @@ const scene = viewer.context.getScene(); //for showing/hiding categories
 
 let _path;
 let _fileName;
+let _model;
 let _globalid;
+let _expressID;
 let _modelInfo = {
   exists: false,
   message: ``,
@@ -113591,30 +113629,32 @@ for (let proj of projects) {
 
 const guiManager = new GUIManager(
   viewer, 
+  viewer.IFC.loader.ifcManager,
   scene, 
   api, 
-  _fileName, 
+  _fileName,
   categories
 );
 
 async function loadIfc(url) {
   // Load the model
-  const model = await viewer.IFC.loadIfcUrl(url);
+  _model = await viewer.IFC.loadIfcUrl(url);
+  guiManager.modelID = _model.modelID;
   // Add dropped shadow and post-processing efect
-  await viewer.shadowDropper.renderShadow(model.modelID);
+  await viewer.shadowDropper.renderShadow(_model.modelID);
   // viewer.context.renderer.postProduction.active = true;
-  model.removeFromParent(); //for ifc categories filter
-  const ifcProject = await viewer.IFC.getSpatialStructure(model.modelID);
+  _model.removeFromParent(); //for ifc categories filter
+  const ifcProject = await viewer.IFC.getSpatialStructure(_model.modelID);
   await guiManager.setupAllCategories(); //for ifc categories filter
   const modelInfo = await api.getModelInfo(_fileName);
-  const structure = await viewer.IFC.loader.ifcManager.getSpatialStructure(model.modelID);
+  const structure = await viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
   // Рекурсивный подсчёт элементов в структуре
   function countElements(item) {
-      let count = item.children.length;
-      for (const child of item.children) {
-          count += countElements(child);
-      }
-      return count;
+    let count = item.children.length;
+    for (const child of item.children) {
+        count += countElements(child);
+    }
+    return count;
   }
   const numberOfElements = countElements(structure);
   console.log('loadIfc numberOfElements modelInfo.rowCount', numberOfElements, modelInfo.rowCount);
@@ -113647,10 +113687,10 @@ toolbarBottom();
 window.onmousemove = () => viewer.IFC.selector.prePickIfcItem();
 
 window.ondblclick = async () => {
-  const expressID = await viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
-  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", expressID);
-  if (!expressID) return;
-  const { modelID, id } = expressID;
+  _expressID = await viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
+  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", _expressID);
+  if (!_expressID) return;
+  const { modelID, id } = _expressID;
   const props = await viewer.IFC.getProperties(modelID, id, true, false);
   _globalid = encodeURIComponent(props.GlobalId.value);
 
@@ -113763,36 +113803,38 @@ dialog.addEventListener('submit', async (event) => {
 });
 
 const btnGetData = document.getElementById("getData");
-console.log("btnGetData.onclick", btnGetData);
-
 btnGetData.onclick = async function() {
   try {
     console.log("btnGetData.onclick");
-    const result = await api.getFromAi("ifcWall", "Перегородка");
+    if (_expressID) {
+        console.log("ExpressID выделенного элемента:", _expressID);
+    } else {
+        console.log("Ничего не выделено!");
+    }
+    let props = await viewer.IFC.getProperties(0, _expressID.id, true, false);
+    // console.log("btnGetData expressID", _expressID)
+    props = await guiManager.normaliseProps(props);
+    console.log("btnGetData props", props);
+    console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
+    // const result = await api.getFromAi("ifcWall", "Перегородка")
+    const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
     console.log("btnGetData result",result);
   } catch (error) {
     console.error('Error:', error);
   }
 };
 
-// document.addEventListener('DOMContentLoaded', function() {
-//   const btnGetData = document.getElementById("getData");
-//   btnGetData.addEventListener('click', async (event) => {
-//     try {
-//       console.log("btnGetData addEventListener", event)
-//       event.preventDefault(); // Отменяем стандартное поведение формы
-//       const result = await api.getFromAi("ifcWall", "Перегородка")
-//       console.log("btnGetData result",result)
-//     } catch (error) {
-//       console.error('Error:', error);
-//     }
-//   })
-//   // Можно также добавить обработчик для sendData
-//   const btnSendData = document.getElementById("sendData");
-//   if (btnSendData) {
-//       btnSendData.addEventListener('click', function() {
-//           // Логика отправки данных
-//           alert("Данные отправлены (из внешнего JS)");
-//       });
-//   }
-// });
+viewer.IFC.selector.pickIfcItem(async (element) => {
+  if (!element) {
+      console.log("Выделение снято");
+      return;
+  }
+
+  const expressID = element.expressID;
+  console.log("Выделен элемент с expressID:", expressID);
+
+  // Дополнительно можно получить его IFC-класс
+  const ifcManager = viewer.IFC.loader.ifcManager;
+  const props = await ifcManager.getItemProperties(0, expressID); // 0 = modelID (если модель одна)
+  console.log("IFC-класс:", props.type);
+});

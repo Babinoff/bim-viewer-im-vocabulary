@@ -261,6 +261,51 @@ async function updateElement(fileName, globalid, fieldsToUpdate) {
       );
   });
 }
+
+async function columnExists(db, tableName, columnName) {
+  return new Promise((resolve, reject) => {
+      db.get(
+          `PRAGMA table_info(${tableName})`,
+          (err, rows) => {
+              if (err) return reject(err);
+              
+              const columnExists = rows.some(
+                  row => row.name === columnName
+              );
+              resolve(columnExists);
+          }
+      );
+  });
+}
+
+// Добавление новой колонки в таблицу
+async function addColumn(db, tableName, columnDefinition) {
+  return new Promise((resolve, reject) => {
+      db.run(
+          `ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`,
+          (err) => {
+              if (err) return reject(err);
+              resolve(true);
+          }
+      );
+  });
+}
+
+async function ensureColumnExists(db, tableName, columnName, columnType = 'TEXT') {
+  try {
+      const exists = await columnExists(db, tableName, columnName);
+      if (!exists) {
+          await addColumn(db, tableName, `${columnName} ${columnType}`);
+          console.log(`Колонка ${columnName} добавлена в таблицу ${tableName}`);
+          return true;
+      }
+      return false;
+  } catch (err) {
+      console.error(`Ошибка при работе с колонкой ${columnName}:`, err);
+      throw err;
+  }
+}
+
 // Экспорт функций
 module.exports = {
   getDatabaseInfo,
@@ -269,4 +314,5 @@ module.exports = {
   addElement,
   getElementByGlobalId,
   updateElement,
+  ensureColumnExists
 };

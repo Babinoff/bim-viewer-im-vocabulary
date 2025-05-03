@@ -203,7 +203,7 @@ app.get('/get-from-ai', async (req, res) => {
           content: [
             {
               type: "text",
-              text: `какой класс КСИ для ${req.query.ifcClass} ${req.query.elementType}`,
+              text: `${req.query.ifcClass} ${req.query.elementType}`,
             },
             {
               type: "document_url",

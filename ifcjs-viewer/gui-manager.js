@@ -1,10 +1,12 @@
 // GUI Manager Library
 export class GUIManager {
-  constructor(viewer, scene, api, fileName, categories) {
+  constructor(viewer, ifcManager, scene, api, fileName, categories,) {
     this.viewer = viewer;
+    this.ifcManager = ifcManager
     this.scene = scene;
     this.api = api;
     this.fileName = fileName;
+    this.modelID;
     this.categories = categories;
     this.subsets = {};
     // Элементы DOM, которые должны быть переданы или найдены
@@ -19,6 +21,9 @@ export class GUIManager {
     this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
     this.input_EndDateIs = document.getElementById("input_EndDateIs");
     this.globalid = null;
+    this.props_type;
+    this.props_name;
+    this.props_mat;
   }
 
   // Properties Menu Methods
@@ -45,16 +50,47 @@ export class GUIManager {
     }
 
     // Prepare properties for display
-    // props.psets = JSON.stringify(props.psets);
-    // props.mats = JSON.stringify(props.mats);
-    // props.type = JSON.stringify(props.type);
+    props.psets = JSON.stringify(props.psets);
+    console.log("props.psets", JSON.stringify(props.psets));
+    console.log("props.mats", JSON.stringify(props.mats));
+    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
+    props.Name = this.decodeUnicodeEscape(props.Name.value)
+    
+    const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
+    console.log("typeID:", typeID);
+    props.type = typeID;
+    // props = await this.normaliseProps(props);
 
     // Create property entries
     for (let key in props) {
+      console.log(key, props[key])
       this.createPropertyEntry(key, props[key]);
     }
 
     this.dialog.showModal();
+  }
+
+  async normaliseProps(props) {
+    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
+    props.Name = this.decodeUnicodeEscape(props.Name.value);
+    const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
+    console.log("typeID:", typeID);
+    props.type = typeID;
+    return props;
+  }
+
+  decodeUnicodeEscape(str) {
+    // Заменяем все вхождения \X2\....\X0\ на соответствующие символы
+    return str.replace(/\\X2\\([0-9A-Fa-f]+)\\X0\\/g, function(match, hexCodes) {
+        let result = '';
+        // Разбиваем строку на группы по 4 символа (каждый символ UTF-16)
+        for (let i = 0; i < hexCodes.length; i += 4) {
+            const hex = hexCodes.substr(i, 4);
+            const codePoint = parseInt(hex, 16);
+            result += String.fromCharCode(codePoint);
+        }
+        return result;
+    });
   }
 
   updatePropsFromVocabulary(result, props) {
@@ -108,12 +144,12 @@ export class GUIManager {
   }
 
   async getAll(category) {
-    return this.viewer.IFC.loader.ifcManager.getAllItemsOfType(0, category, false);
+    return this.ifcManager.getAllItemsOfType(0, category, false);
   }
 
   async newSubsetOfType(category) {
     const ids = await this.getAll(category);
-    return this.viewer.IFC.loader.ifcManager.createSubset({
+    return this.ifcManager.createSubset({
       modelID: 0,
       scene: this.scene,
       ids,
