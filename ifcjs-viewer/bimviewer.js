@@ -46,19 +46,19 @@ const categories = {
 };
 
 const container = document.getElementById("viewer-container");
-const viewer = new IfcViewerAPI({
+const _viewer = new IfcViewerAPI({
   container,
   backgroundColor: new Color(255, 255, 255),
 });
 
-viewer.axes.setAxes();
-viewer.grid.setGrid();
+_viewer.axes.setAxes();
+_viewer.grid.setGrid();
 
 const currentUrl = window.location.href;
 const url = new URL(currentUrl);
 const currentProjectID = url.searchParams.get("id"); //bimserver project id - use this to get latest revision etc
 
-const scene = viewer.context.getScene(); //for showing/hiding categories
+const scene = _viewer.context.getScene(); //for showing/hiding categories
 
 let _path;
 let _fileName;
@@ -91,8 +91,8 @@ for (let proj of projects) {
 }
 
 const guiManager = new GUIManager(
-  viewer, 
-  viewer.IFC.loader.ifcManager,
+  _viewer, 
+  _viewer.IFC.loader.ifcManager,
   scene, 
   api, 
   _fileName,
@@ -101,16 +101,16 @@ const guiManager = new GUIManager(
 
 async function loadIfc(url) {
   // Load the model
-  _model = await viewer.IFC.loadIfcUrl(url);
+  _model = await _viewer.IFC.loadIfcUrl(url);
   guiManager.modelID = _model.modelID;
   // Add dropped shadow and post-processing efect
-  await viewer.shadowDropper.renderShadow(_model.modelID);
+  await _viewer.shadowDropper.renderShadow(_model.modelID);
   // viewer.context.renderer.postProduction.active = true;
   _model.removeFromParent(); //for ifc categories filter
-  const ifcProject = await viewer.IFC.getSpatialStructure(_model.modelID);
+  const ifcProject = await _viewer.IFC.getSpatialStructure(_model.modelID);
   await guiManager.setupAllCategories(); //for ifc categories filter
   const modelInfo = await api.getModelInfo(_fileName);
-  const structure = await viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
+  const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
   // Рекурсивный подсчёт элементов в структуре
   function countElements(item) {
     let count = item.children.length;
@@ -147,14 +147,14 @@ toolbarTop();
 toolbarBottom();
 
 //select IFC elements
-window.onmousemove = () => viewer.IFC.selector.prePickIfcItem();
+window.onmousemove = () => _viewer.IFC.selector.prePickIfcItem();
 
 window.ondblclick = async () => {
-  _expressID = await viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
+  _expressID = await _viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
   console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", _expressID)
   if (!_expressID) return;
   const { modelID, id } = _expressID;
-  const props = await viewer.IFC.getProperties(modelID, id, true, false);
+  const props = await _viewer.IFC.getProperties(modelID, id, true, false);
   _globalid = encodeURIComponent(props.GlobalId.value);
 
   guiManager.createPropertiesMenu(props);
@@ -163,11 +163,11 @@ window.ondblclick = async () => {
   propertiesButton.classList.add("active");
 
   if (clippingPlanesActive) {
-    viewer.clipper.createPlane();
+    _viewer.clipper.createPlane();
   }
 
   if (measurementsActive) {
-    viewer.dimensions.create();
+    _viewer.dimensions.create();
   }
 };
 
@@ -177,7 +177,7 @@ const clipButton = document.getElementById("clipPlaneButton");
 let clippingPlanesActive = false;
 clipButton.onclick = () => {
   clippingPlanesActive = !clippingPlanesActive;
-  viewer.clipper.active = clippingPlanesActive;
+  _viewer.clipper.active = clippingPlanesActive;
 
   if (clippingPlanesActive) {
     //add or remove active class depending on whether button is clicked and clipping planes are active
@@ -189,22 +189,22 @@ clipButton.onclick = () => {
 
 window.onauxclick = () => {
   if (clippingPlanesActive) {
-    viewer.clipper.createPlane();
+    _viewer.clipper.createPlane();
   }
 
   if (measurementsActive) {
-    viewer.dimensions.create();
+    _viewer.dimensions.create();
   }
 };
 
 window.onkeydown = (event) => {
   if (event.code === "Delete" && clippingPlanesActive) {
     // viewer.clipper.deletePlane();
-    viewer.clipper.deleteAllPlanes();
+    _viewer.clipper.deleteAllPlanes();
   }
 
   if (event.code === "Delete" && measurementsActive) {
-    viewer.dimensions.delete();
+    _viewer.dimensions.delete();
   }
 };
 
@@ -214,16 +214,16 @@ const annotationsButton = document.getElementById("annotationsButton");
 let measurementsActive = false;
 
 annotationsButton.onclick = () => {
-  viewer.dimensions.active = true;
-  viewer.dimensions.previewActive = true;
+  _viewer.dimensions.active = true;
+  _viewer.dimensions.previewActive = true;
   measurementsActive = !measurementsActive;
 
   if (measurementsActive) {
     annotationsButton.classList.add("active");
   } else {
     annotationsButton.classList.remove("active");
-    viewer.dimensions.active = false;
-    viewer.dimensions.previewActive = false;
+    _viewer.dimensions.active = false;
+    _viewer.dimensions.previewActive = false;
   }
 };
 
@@ -292,14 +292,6 @@ btnGetData.onclick = async function() {
   }
 }
 
-async function getKsiForElement(expressID) {
-  let props = await viewer.IFC.getProperties(0, expressID, true, false);
-  props = await guiManager.normaliseProps(props);
-  console.log("getKsiForElement expressID props", expressID, props);
-  console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
-  // return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
-}
-
 const btnSendData = document.getElementById("sendData");
 btnSendData.onclick = async function() {
   try {
@@ -315,49 +307,99 @@ btnSendData.onclick = async function() {
   }
 }
 
+let _elemCounter = 0;
+let _isCancelled = false;
+const newColor = { r: 1, g: 0, b: 0 }; // Красный
+
+async function getKsiForElement(expressID) {
+  _elemCounter += 1;
+  const percent = Math.round((_elemCounter / _numberOfElements) * 100);
+  console.log("btnAllKsi percent", percent)
+
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  // Даём браузеру время на отрисовку
+
+  updateProgressBar(percent);
+  let props = await _viewer.IFC.getProperties(0, expressID, true, false);
+  props = await guiManager.normaliseProps(props);
+  console.log("getKsiForElement expressID props", expressID, props);
+  // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
+  // return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+}
+
 const btnAllKsi = document.getElementById("btnAllKsi");
 btnAllKsi.onclick = async function() {
   try {
+    _isCancelled = false;
+    _elemCounter = 0;
     showProgressBar();
     console.log("btnAllKsi.onclick");
-    const structure = await viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
+    const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
     console.log("btnAllKsi structure", structure)
     async function setKsiOnAllElements(item) {
       let count = item.children.length;
+      console.log("btnAllKsi setKsiOnAllElements count", count)
       if (item.children.length == 0){
-        console.log("btnAllKsi item.children.length == 0", item)
         const ksiCode = await getKsiForElement(item.expressID)
+        // _viewer.IFC.selector.highlightIfcItem({modelID: 0, id: item.expressID});
+        // const subset = await viewer.IFC.loader.ifcManager.createSubset({
+        //   modelID: _model.modelID,
+        //   ids: [item.expressID],
+        //   removeFromOriginal: false, // Не удалять элементы из основной модели
+        //   customID: "my-subset" // Опционально: имя группы
+        // });
+        // console.log("btnAllKsi subset", subset)
+        // subset.material.color.setHex(0x8cff08); // Красный
+        // viewer.IFC.loader.ifcManager.removeSubset(modelID, undefined, "my-subset");
+        // Даём браузеру время на отрисовку
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
       for (const child of item.children) {
-          count += await setKsiOnAllElements(child);
-          const percent = Math.round((count / _numberOfElements) * 100);
-          updateProgressBar(percent);
-          console.log("btnAllKsi percent", percent)
+        if (_isCancelled) {
+          console.log("Обработка отменена");
+          break; // Прерываем цикл
+        }
+        count += await setKsiOnAllElements(child);
       }
       return count;
     }
     const numberOfElements = await setKsiOnAllElements(structure);
     console.log("btnAllKsi.numberOfElements", numberOfElements)
-    // const result = await api.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
-    // if (result.success == true){
-    //   const ksiInfoInput = document.getElementById("ksi_info");
-    //   ksiInfoInput.style.backgroundColor = '#8cff08';
-    // }
-    // console.log("btnSendData result", result);
   } catch (error) {
     console.error('Error:', error);
   }
   finally{
-    hideProgressBar();
+    updateProgressBar(100);
+    // hideProgressBar();
   }
 }
 
+console.log("viewer.IFC.selector",_viewer.IFC.selector)
+
 function showProgressBar() {
-  document.querySelector('.progress-container').style.display = 'block';
+  const overlay = document.getElementById('progressOverlay');
+  overlay.animate([
+    { display: 'none', opacity: 0 },
+    { display: 'flex', opacity: 1 }
+    ], 
+    {
+      duration: 300,
+      fill: 'forwards'
+    });
+  updateProgressBar(0);
+  overlay.classList.add('show');
 }
 
 function hideProgressBar() {
-  document.querySelector('.progress-container').style.display = 'none';
+  const overlay = document.getElementById('progressOverlay');
+  overlay.animate([
+    { display: 'none', opacity: 0 }
+    ], 
+    {
+      duration: 300,
+      fill: 'forwards'
+    });
+    overlay.classList.remove('show');
 }
 
 function updateProgressBar(percent) {
@@ -367,8 +409,34 @@ function updateProgressBar(percent) {
   progressBar.style.width = percent + '%';
   progressText.textContent = percent + '%';
   
+  // Добавляем анимацию при завершении
   if (percent >= 100) {
-      setTimeout(hideProgressBar, 1000); // Скрыть через 1 секунду после завершения
+      progressBar.classList.add('complete');
+      // setTimeout(hideProgressBar, 1000);
+  } else {
+      progressBar.classList.remove('complete');
   }
 }
 
+// // Обработчик кнопки отмены
+// document.getElementById('cancelProgress')?.addEventListener('click', function() {
+//   hideProgressBar();
+//   // Здесь можно добавить логику отмены операции
+//   console.log('Операция отменена');
+// });
+
+const btnAllKsiCancel = document.getElementById("cancelProgress");
+btnAllKsiCancel.onclick = async function() {
+  try {
+    console.log('Кнопка:', btnAllKsiCancel);
+    console.log('Стили:', getComputedStyle(btnAllKsiCancel).cursor);
+    _isCancelled = true;
+    // Здесь можно добавить логику отмены операции
+    console.log('Операция отменена');
+  } catch (error) {
+    console.error('Error:', error);
+  }
+  finally{
+    hideProgressBar();
+  }
+}

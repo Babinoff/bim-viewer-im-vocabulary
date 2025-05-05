@@ -87,43 +87,88 @@
           cursor: pointer;
       }
 
+      .progress-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000; /* Должен быть выше всех элементов */
+          pointer-events: auto; /* Разрешаем события мыши */
+          visibility: hidden;
+          opacity: 0;
+          transition: opacity 0.3s ease, visibility 0.3s;
+      }
+
+      .progress-overlay.show {
+          visibility: visible;
+          opacity: 1;
+      }
+
       .progress-container {
-        position: absolute;
-        margin: 20px 0;
+          background-color: white;
+          padding: 20px;
+          border-radius: 8px;
+          width: 300px;
+          /* pointer-events должны быть auto по умолчанию */
       }
 
       .progress-bar {
-          width: 100%;
           height: 20px;
-          background-color: #f1f1f1;
+          background-color: #e0e0e0;
           border-radius: 10px;
+          margin: 10px 0;
           overflow: hidden;
       }
 
       .progress {
           height: 100%;
           background-color: #4CAF50;
+          width: 0%;
           transition: width 0.3s ease;
       }
 
-      .progress-text {
-          text-align: center;
-          margin-top: 5px;
-          font-weight: bold;
+      #cancelProgress {
+          position: relative;
+          z-index: 99999; /* Максимальный приоритет */
+          box-shadow: 0 0 0 3px red; /* Красная обводка для видимости */
+      }
+
+      .btn-cancel {
+          background-color: #ff4444;
+          pointer-events: auto; /* ← Явно разрешаем клики */
+          cursor: pointer; /* ← Обязательно для кнопок */
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          margin-top: 10px;
+          border-radius: 4px;
+          z-index: 1000;
       }
     </style>
   </head>
   <body>
     <div id="viewer-container"></div>
+
     <div id="custom-buttons">
       <button class="custom-btn" id="btnAllKsi">Заполнить КСИ для всех элементов</button>
     </div>
-    <div class="progress-container" style="display: none;">
-      <div class="progress-bar">
-          <div class="progress" id="progressBar" style="width: 0%"></div>
+
+    <div id="progressOverlay" class="progress-overlay">
+      <div class="progress-container">
+          <h3>Загрузка данных...</h3>
+          <div class="progress-bar">
+              <div class="progress" id="progressBar"></div>
+          </div>
+          <div class="progress-text" id="progressText">0%</div>
+          <button id="cancelProgress" class="btn-cancel">Отмена</button>
       </div>
-      <div class="progress-text" id="progressText">0%</div>
     </div>
+
     <script type="module" src="bundle.js"></script>
     <script>
     </script>
