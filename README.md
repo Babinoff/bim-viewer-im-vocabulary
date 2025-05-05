@@ -34,4 +34,5 @@ https://youtu.be/uUC4GL16YdQ?si=pdtIQ_nC9_K4jPjY
 | `RUS_StartDateIs`     | TEXT    | Фактическая дата начала работ. |
 | `RUS_EndDatePlan`     | TEXT    | Плановая дата завершения работ. |
 | `RUS_EndDateIs`       | TEXT    | Фактическая дата завершения работ. |
+| `RUS_ElementCode`     | TEXT    | Код классификатора. |
 | `vocabulary`          | TEXT    | тестовое поле |
