@@ -112936,11 +112936,13 @@ class GUIManager {
   }
 
   async normaliseProps(props) {
-    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
-    props.Name = this.decodeUnicodeEscape(props.Name.value);
-    const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
-    console.log("typeID:", typeID);
-    props.type = typeID;
+    if (props != null){
+      props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name?.value ?? 'unnamed')).join('_');
+      props.Name = this.decodeUnicodeEscape(props.Name?.value ?? 'unnamed');
+      const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
+      // console.log("typeID:", typeID);
+      props.type = typeID;
+    }
     return props;
   }
 
@@ -113611,6 +113613,7 @@ let _model;
 let _globalid;
 let _expressID;
 let _elemKsiCode;
+let _numberOfElements;
 let _modelInfo = {
   exists: false,
   message: ``,
@@ -113663,17 +113666,17 @@ async function loadIfc(url) {
     }
     return count;
   }
-  const numberOfElements = countElements(structure);
-  console.log('loadIfc numberOfElements modelInfo.rowCount', numberOfElements, modelInfo.rowCount);
+  _numberOfElements = countElements(structure);
+  console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   const btnGetData = document.getElementById("getData");
   console.log("btnGetData.onclick", btnGetData);
-  if (numberOfElements != modelInfo.rowCount){
+  if (_numberOfElements != modelInfo.rowCount){
       //создавать элементы словаря
     structure.children.forEach((child) => {
       guiManager.constructVocabulary(child);
     });
   }
-  await guiManager.createTreeMenu(ifcProject, _modelInfo, numberOfElements);
+  await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
 
 loadIfc(_path);
@@ -113799,11 +113802,6 @@ dialog.addEventListener('submit', async (event) => {
       "RUS_StartDateIs": document.getElementById("input_RUS_StartDateIs").value,
       "RUS_EndDatePlan": document.getElementById("input_RUS_EndDatePlan").value,
       "RUS_EndDateIs": document.getElementById("input_RUS_EndDateIs").value
-      // input_DivisionNumber: document.getElementById("input_DivisionNumber").value,
-      // input_StartDatePlan: document.getElementById("input_StartDatePlan").value,
-      // input_StartDateIs: document.getElementById("input_StartDateIs").value,
-      // input_EndDatePlan: document.getElementById("input_EndDatePlan").value,
-      // input_EndDateIs: document.getElementById("input_EndDateIs").value
     };
     // console.log("addEventListener fields", fields)
     dialog.close();
@@ -113823,13 +113821,14 @@ btnGetData.onclick = async function() {
     } else {
         console.log("Ничего не выделено!");
     }
-    let props = await viewer.IFC.getProperties(0, _expressID.id, true, false);
-    // console.log("btnGetData expressID", _expressID)
-    props = await guiManager.normaliseProps(props);
-    console.log("btnGetData props", props);
-    console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
-    // const result = await api.getFromAi("ifcWall", "Перегородка")
-    const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+    // let props = await viewer.IFC.getProperties(0, _expressID.id, true, false);
+    // // console.log("btnGetData expressID", _expressID)
+    // props = await guiManager.normaliseProps(props);
+    // console.log("btnGetData props", props);
+    // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
+    // // const result = await api.getFromAi("ifcWall", "Перегородка")
+    // const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+    const result = await getKsiForElement(_expressID.id);
     console.log("btnGetData result", result);
     _elemKsiCode = result;
     const ksiInfoInput = document.getElementById("ksi_info");
@@ -113839,6 +113838,14 @@ btnGetData.onclick = async function() {
     console.error('Error:', error);
   }
 };
+
+async function getKsiForElement(expressID) {
+  let props = await viewer.IFC.getProperties(0, expressID, true, false);
+  props = await guiManager.normaliseProps(props);
+  console.log("getKsiForElement expressID props", expressID, props);
+  console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
+  // return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+}
 
 const btnSendData = document.getElementById("sendData");
 btnSendData.onclick = async function() {
@@ -113855,17 +113862,59 @@ btnSendData.onclick = async function() {
   }
 };
 
-// viewer.IFC.selector.pickIfcItem(async (element) => {
-//   if (!element) {
-//       console.log("Выделение снято");
-//       return;
-//   }
+const btnAllKsi = document.getElementById("btnAllKsi");
+btnAllKsi.onclick = async function() {
+  try {
+    showProgressBar();
+    console.log("btnAllKsi.onclick");
+    const structure = await viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
+    console.log("btnAllKsi structure", structure);
+    async function setKsiOnAllElements(item) {
+      let count = item.children.length;
+      if (item.children.length == 0){
+        console.log("btnAllKsi item.children.length == 0", item);
+        const ksiCode = await getKsiForElement(item.expressID);
+      }
+      for (const child of item.children) {
+          count += await setKsiOnAllElements(child);
+          const percent = Math.round((count / _numberOfElements) * 100);
+          updateProgressBar(percent);
+          console.log("btnAllKsi percent", percent);
+      }
+      return count;
+    }
+    const numberOfElements = await setKsiOnAllElements(structure);
+    console.log("btnAllKsi.numberOfElements", numberOfElements);
+    // const result = await api.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
+    // if (result.success == true){
+    //   const ksiInfoInput = document.getElementById("ksi_info");
+    //   ksiInfoInput.style.backgroundColor = '#8cff08';
+    // }
+    // console.log("btnSendData result", result);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+  finally{
+    hideProgressBar();
+  }
+};
 
-//   const expressID = element.expressID;
-//   console.log("Выделен элемент с expressID:", expressID);
+function showProgressBar() {
+  document.querySelector('.progress-container').style.display = 'block';
+}
 
-//   // Дополнительно можно получить его IFC-класс
-//   const ifcManager = viewer.IFC.loader.ifcManager;
-//   const props = await ifcManager.getItemProperties(0, expressID); // 0 = modelID (если модель одна)
-//   console.log("IFC-класс:", props.type);
-// });
+function hideProgressBar() {
+  document.querySelector('.progress-container').style.display = 'none';
+}
+
+function updateProgressBar(percent) {
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  
+  progressBar.style.width = percent + '%';
+  progressText.textContent = percent + '%';
+  
+  if (percent >= 100) {
+      setTimeout(hideProgressBar, 1000); // Скрыть через 1 секунду после завершения
+  }
+}

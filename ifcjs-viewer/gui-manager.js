@@ -69,11 +69,13 @@ export class GUIManager {
   }
 
   async normaliseProps(props) {
-    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
-    props.Name = this.decodeUnicodeEscape(props.Name.value);
-    const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
-    console.log("typeID:", typeID);
-    props.type = typeID;
+    if (props != null){
+      props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name?.value ?? 'unnamed')).join('_');
+      props.Name = this.decodeUnicodeEscape(props.Name?.value ?? 'unnamed');
+      const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
+      // console.log("typeID:", typeID);
+      props.type = typeID;
+    }
     return props;
   }
 
