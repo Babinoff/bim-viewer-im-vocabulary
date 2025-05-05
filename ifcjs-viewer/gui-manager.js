@@ -15,18 +15,19 @@ export class GUIManager {
     this.dialog = document.getElementById('dialog');
     this.propertiesButton = document.getElementById('properties-button');
     // Input элементы
-    this.input_DivisionNumber = document.getElementById("input_DivisionNumber");
-    this.input_StartDatePlan = document.getElementById("input_StartDatePlan");
-    this.input_StartDateIs = document.getElementById("input_StartDateIs");
-    this.input_EndDatePlan = document.getElementById("input_EndDatePlan");
-    this.input_EndDateIs = document.getElementById("input_EndDateIs");
+    this.input_DivisionNumber = document.getElementById("input_RUS_DivisionNumber");
+    this.input_StartDatePlan = document.getElementById("input_RUS_StartDatePlan");
+    this.input_StartDateIs = document.getElementById("input_RUS_StartDateIs");
+    this.input_EndDatePlan = document.getElementById("input_RUS_EndDatePlan");
+    this.input_EndDateIs = document.getElementById("input_RUS_EndDateIs");
+    this.ksiInfoInput = document.getElementById("ksi_info");
     this.globalid = null;
   }
 
   // Properties Menu Methods
   async createPropertiesMenu(props) {
     this.inputForm.reset();
-    
+    this.ksiInfoInput.style.backgroundColor = '#eeeeee';
     // Reset input disabled states
     [this.input_DivisionNumber, this.input_StartDatePlan, 
      this.input_StartDateIs, this.input_EndDatePlan, this.input_EndDateIs]
@@ -37,10 +38,10 @@ export class GUIManager {
     
     try {
       const globalid = encodeURIComponent(props.GlobalId.value);
-      const result = await this.api.getVocabulary(this.fileName, globalid);
+      const resultFromVocabulary = await this.api.getVocabulary(this.fileName, globalid);
 
-      if (result != null) {
-        this.updatePropsFromVocabulary(result, props);
+      if (resultFromVocabulary != null) {
+        this.updatePropsFromVocabulary(resultFromVocabulary, props);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -90,19 +91,26 @@ export class GUIManager {
     });
   }
 
-  updatePropsFromVocabulary(result, props) {
-    const vocabularyMappings = {
-      'RUS_DivisionNumber': { prop: 'RUS_DivisionNumber', input: this.input_DivisionNumber },
-      'RUS_StartDatePlan': { prop: 'RUS_StartDatePlan', input: this.input_StartDatePlan },
-      'RUS_StartDateIs': { prop: 'RUS_StartDateIs', input: this.input_StartDateIs },
-      'RUS_EndDatePlan': { prop: 'RUS_EndDatePlan', input: this.input_EndDatePlan },
-      'RUS_EndDateIs': { prop: 'RUS_EndDateIs', input: this.input_EndDateIs }
-    };
+  updatePropsFromVocabulary(resultFromVocabulary, props) {
+    console.log("resultFromVocabulary", resultFromVocabulary)
+    // const vocabularyMappings = {
+    //   'RUS_DivisionNumber': { prop: 'RUS_DivisionNumber', input: this.input_DivisionNumber },
+    //   'RUS_StartDatePlan': { prop: 'RUS_StartDatePlan', input: this.input_StartDatePlan },
+    //   'RUS_StartDateIs': { prop: 'RUS_StartDateIs', input: this.input_StartDateIs },
+    //   'RUS_EndDatePlan': { prop: 'RUS_EndDatePlan', input: this.input_EndDatePlan },
+    //   'RUS_EndDateIs': { prop: 'RUS_EndDateIs', input: this.input_EndDateIs }
+    // };
 
-    for (const [key, mapping] of Object.entries(vocabularyMappings)) {
-      if (result[key]) {
-        props[mapping.prop] = result[key];
-        mapping.input.disabled = true;
+    for (const [key, value] of Object.entries(resultFromVocabulary)) {
+      if (key.includes("RUS")) {
+        props[key] = value;
+        try{
+          const input = document.getElementById(`input_${key}`);
+          input.disabled = true;
+        }
+        catch (error) {
+        console.error('Error:', error);
+        }
       }
     }
   }

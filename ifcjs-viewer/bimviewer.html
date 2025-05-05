@@ -51,10 +51,48 @@
       button:hover {
           background-color: #0056b3;
       }
+      body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        #app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #custom-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000; /* Важно: кнопки должны быть выше вьювера */
+        }
+        
+        .custom-btn {
+            /* background: #4CAF50; */
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
   </head>
   <body>
     <div id="viewer-container"></div>
+    <div id="custom-buttons">
+      <button class="custom-btn" id="btn-zoom">Заполнить КСИ для всех элементов</button>
+    </div>
     <script type="module" src="bundle.js"></script>
     <script>
     </script>
@@ -65,27 +103,27 @@
         <br>
         <label>
           Номер захватки:
-          <input id="input_DivisionNumber" type="text" />
+          <input id="input_RUS_DivisionNumber" type="text" />
         </label>
         <br>
         <label>
           Плановая дата начала работ:
-          <input id="input_StartDatePlan" type="text" />
+          <input id="input_RUS_StartDatePlan" type="text" />
         </label>
         <br>
         <label>
           Фактическая дата начала работ:
-          <input id="input_StartDateIs" type="text" />
+          <input id="input_RUS_StartDateIs" type="text" />
         </label>
         <br>
         <label>
           Плановая дата окончания работ:
-          <input id="input_EndDatePlan" type="text" />
+          <input id="input_RUS_EndDatePlan" type="text" />
         </label>
         <br>
         <label>
           Фактическая дата окончания работ:
-          <input id="input_EndDateIs" type="text" />
+          <input id="input_RUS_EndDateIs" type="text" />
         </label>
       </p>
       <div class="modal-content">
