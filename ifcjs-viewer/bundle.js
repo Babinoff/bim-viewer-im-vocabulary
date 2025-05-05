@@ -122329,6 +122329,10 @@ const projects = [
     name: "Renga коттедж для сериала",
     id: "1000011",
   },
+  {
+    name: "van_gogh_house",
+    id: "1000012",
+  },
 ];
 
 // List of categories names
@@ -122414,7 +122418,10 @@ async function loadIfc(url) {
   const modelInfo = await api.getModelInfo(_fileName);
   const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
   // Рекурсивный подсчёт элементов в структуре
+  let highlightIds = [];
   function countElements(item) {
+    highlightIds.push(item.expressID);
+    _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds);
     let count = item.children.length;
     for (const child of item.children) {
         count += countElements(child);
@@ -122628,6 +122635,26 @@ async function getKsiForElement(expressID) {
   // return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
 }
 
+const customSelectMaterial = new MeshLambertMaterial({  
+  color: 0xcc0000,  // Red color  
+  opacity: 0.5,  
+  transparent: true,  
+  depthTest: false,  
+  side: 2 // DoubleSide  
+});
+
+const customKsiMaterial = new MeshLambertMaterial({  
+  color: 0xAAFCA8,  // Red color  
+  opacity: 0.9,  
+  transparent: true,  
+  depthTest: false,  
+  side: 1 // DoubleSide  
+});  
+  
+// Set this material as your selection material  
+// _viewer.IFC.selector.highlight.material = customMaterial; 
+_viewer.IFC.selector.selection.material = customSelectMaterial;
+
 const btnAllKsi = document.getElementById("btnAllKsi");
 btnAllKsi.onclick = async function() {
   try {
@@ -122637,7 +122664,18 @@ btnAllKsi.onclick = async function() {
     console.log("btnAllKsi.onclick");
     const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
     console.log("btnAllKsi structure", structure);
+    let highlightIds = [];
     async function setKsiOnAllElements(item) {
+      highlightIds.push(item.expressID);
+      // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds);
+      let subset = _viewer.IFC.loader.ifcManager.createSubset({  
+        modelID: _model.modelID,  
+        ids: highlightIds,  
+        material: customKsiMaterial,  
+        scene: _viewer.context.getScene(),  
+        removePrevious: true,
+        customID: "KsiIds" 
+      });
       let count = item.children.length;
       console.log("btnAllKsi setKsiOnAllElements count", count);
       if (item.children.length == 0){
@@ -122662,6 +122700,15 @@ btnAllKsi.onclick = async function() {
         }
         count += await setKsiOnAllElements(child);
       }
+      subset = _viewer.IFC.loader.ifcManager.createSubset({  
+        modelID: _model.modelID,  
+        ids: [],  
+        material: customKsiMaterial,  
+        scene: _viewer.context.getScene(),  
+        removePrevious: true,
+        customID: "KsiIds" 
+      });
+      // console.log("btnAllKsi.subset", subset);
       return count;
     }
     const numberOfElements = await setKsiOnAllElements(structure);
@@ -122671,7 +122718,7 @@ btnAllKsi.onclick = async function() {
   }
   finally{
     updateProgressBar(100);
-    // hideProgressBar();
+    hideProgressBar();
   }
 };
 
@@ -122741,3 +122788,5 @@ btnAllKsiCancel.onclick = async function() {
     hideProgressBar();
   }
 };
+  
+// Create a custom material (color in hex format, opacity 0-1)

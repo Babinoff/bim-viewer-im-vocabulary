@@ -223,6 +223,7 @@ async function updateElement(fileName, globalid, fieldsToUpdate) {
               if (err) {
                   reject(`Ошибка при проверке наличия globalid: ${err.message}`);
               } else if (!row) {
+                  console.log("updateElement", err, row)
                   resolve(`Строка с globalid "${globalid}" не найдена.`);
               } else {
                   // Формируем SQL-запрос динамически
