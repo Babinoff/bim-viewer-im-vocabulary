@@ -209,7 +209,9 @@ async function getElementByGlobalId(filename, globalid) {
 }
 
 // Функция для обновления записи
-async function updateElement(fileName, globalid, fieldsToUpdate) {
+async function updateElement(filename, globalid, fieldsToUpdate) {
+
+  // console.log("updateElement filename", filename)
   if (!db) {
     connectToDatabase(filename);
   }

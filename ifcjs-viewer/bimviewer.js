@@ -327,7 +327,7 @@ async function getKsiForElement(expressID) {
   props = await guiManager.normaliseProps(props);
   console.log("getKsiForElement expressID props", expressID, props);
   // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
-  // return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+  return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
 }
 
 const customSelectMaterial = new MeshLambertMaterial({  
@@ -345,7 +345,7 @@ const customKsiMaterial = new MeshLambertMaterial({
   depthTest: false,  
   side: 1 // DoubleSide  
 });  
-  
+
 // Set this material as your selection material  
 // _viewer.IFC.selector.highlight.material = customMaterial; 
 _viewer.IFC.selector.selection.material = customSelectMaterial;
@@ -374,19 +374,21 @@ btnAllKsi.onclick = async function() {
       let count = item.children.length;
       console.log("btnAllKsi setKsiOnAllElements count", count)
       if (item.children.length == 0){
+        const progressOverlay = document.getElementById("progressBar");
+        progressOverlay.style.backgroundColor = '#bcbcbc';
         const ksiCode = await getKsiForElement(item.expressID)
-        // _viewer.IFC.selector.highlightIfcItem({modelID: 0, id: item.expressID});
-        // const subset = await viewer.IFC.loader.ifcManager.createSubset({
-        //   modelID: _model.modelID,
-        //   ids: [item.expressID],
-        //   removeFromOriginal: false, // Не удалять элементы из основной модели
-        //   customID: "my-subset" // Опционально: имя группы
-        // });
-        // console.log("btnAllKsi subset", subset)
-        // subset.material.color.setHex(0x8cff08); // Красный
-        // viewer.IFC.loader.ifcManager.removeSubset(modelID, undefined, "my-subset");
+
+        const props = await _viewer.IFC.getProperties(_model.modelID, item.expressID, true, false);
+
+        const globalid = encodeURIComponent(props.GlobalId.value);
+        // console.log("btnAllKsi setKsiOnAllElements _fileName, globalid, {RUS_ElementCode:ksiCode}", _fileName, globalid, ksiCode);
+        const result = await api.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
+        if (result.success == true){
+          progressOverlay.style.backgroundColor = '#8cff08';
+        }
+        console.log("btnAllKsi setKsiOnAllElements ksiCode", ksiCode)
         // Даём браузеру время на отрисовку
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
       for (const child of item.children) {
         if (_isCancelled) {
@@ -455,18 +457,10 @@ function updateProgressBar(percent) {
   // Добавляем анимацию при завершении
   if (percent >= 100) {
       progressBar.classList.add('complete');
-      // setTimeout(hideProgressBar, 1000);
   } else {
       progressBar.classList.remove('complete');
   }
 }
-
-// // Обработчик кнопки отмены
-// document.getElementById('cancelProgress')?.addEventListener('click', function() {
-//   hideProgressBar();
-//   // Здесь можно добавить логику отмены операции
-//   console.log('Операция отменена');
-// });
 
 const btnAllKsiCancel = document.getElementById("cancelProgress");
 btnAllKsiCancel.onclick = async function() {
@@ -484,4 +478,3 @@ btnAllKsiCancel.onclick = async function() {
   }
 }
   
-// Create a custom material (color in hex format, opacity 0-1)  
