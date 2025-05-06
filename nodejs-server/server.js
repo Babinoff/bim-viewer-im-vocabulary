@@ -2,7 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const { create } = require('xmlbuilder2');
 const fs = require('fs').promises;
-const { getDatabaseInfo, createDatabase, connectToDatabase, addElement, getElementByGlobalId, updateElement, ensureColumnExists} = require('./db');
+const { 
+  getDatabaseInfo, 
+  createDatabase, 
+  connectToDatabase, 
+  addElement, 
+  getElementByGlobalId, 
+  updateElement,
+  getAllKsiExpressID
+  } = require('./db');
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
 
@@ -74,9 +82,9 @@ app.post('/create-vocabulary', async (req, res) => {
 app.post('/add-vocabulary', async (req, res) => {
   try {
     // Новая валидация данных
-    console.log("/add-vocabulary req.body", req.body)
-    if (!req.body || !req.body.globalid || !req.body.fileName) {
-      const errorMessage = 'Invalid data format. Required fields: globalid, fileName'
+    // console.log("/add-vocabulary req.body", req.body)
+    if (!req.body || !req.body.globalid || !req.body.fileName || !req.body.expressID) {
+      const errorMessage = 'Invalid data format. Required fields: globalid, fileName, expressID'
       console.error("/add-vocabulary", errorMessage);
       return res.status(400).json({ 
         error: errorMessage 
@@ -85,7 +93,8 @@ app.post('/add-vocabulary', async (req, res) => {
     // Добавляем элементы
     console.log(await addElement(
       req.body.fileName,
-      decodeURIComponent(req.body.globalid)
+      decodeURIComponent(req.body.globalid),
+      req.body.expressID
     )); // Успешно добавится
     
     res.status(200).json({ success: true });
@@ -129,7 +138,7 @@ app.post('/update-vocabulary', async (req, res) => {
 
 app.get('/get-vocabulary', async (req, res) => {
   try {
-    // Новая валидация данных
+    // Новая валидация данныхexpressID
     console.log("/get-vocabulary req.body", req.query)
     if (!req.query || !req.query.globalid || !req.query.fileName) {
       const errorMessage = 'Invalid data format. Required fields: globalid fileName' 
@@ -251,6 +260,27 @@ app.post('/save-ksi', async (req, res) => {
   }
 });
 
+app.get('/get-all-ksi-express-id', async (req, res) => {
+  try {
+    // Новая валидация данных
+    console.log("/get-all-ksi-express-id", req.query)
+    if (!req.query || !req.query.fileName) {
+      const errorMessage = 'Invalid data format. Required fields: globalid fileName' 
+      console.error("/get-all-ksi-express-id", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage
+      });
+    }
+
+    let allKsiExpressID = await getAllKsiExpressID(req.query.fileName)
+    console.log(req.query, allKsiExpressID);
+
+    res.status(200).json({ success: true, allKsiExpressID: allKsiExpressID });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 app.use(cors({
   origin: '*',

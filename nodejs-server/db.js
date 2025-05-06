@@ -2,8 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 
-let db; // Переменная для хранения соединения с базой данных
-const tableName = "elements"
+let _db; // Переменная для хранения соединения с базой данных
+const _tableName = "elements"
 
 // Функция для получения пути к файлу базы данных
 function getDbPath(filename) {
@@ -91,7 +91,7 @@ async function createDatabase(filename) {
     }
 
     // Создаем новую базу данных
-    db = new sqlite3.Database(dbPath, (err) => {
+    _db = new sqlite3.Database(dbPath, (err) => {
         if (err) {
             throw new Error(`Ошибка при создании базы данных: ${err.message}`);
         }
@@ -99,7 +99,7 @@ async function createDatabase(filename) {
 
     console.log(`База данных "${filename}.sqlite" успешно создана.`);
     await initializeDatabase(); // Инициализация таблицы
-    db.close(); // Закрываем соединение после создания
+    _db.close(); // Закрываем соединение после создания
     return `База данных "${filename}.sqlite" готова к использованию.`;
 }
 
@@ -113,7 +113,7 @@ async function connectToDatabase(filename) {
     }
 
     // Подключаемся к базе данных
-    db = new sqlite3.Database(dbPath, (err) => {
+    _db = new sqlite3.Database(dbPath, (err) => {
         if (err) {
             throw new Error(`Ошибка при подключении к базе данных: ${err.message}`);
         }
@@ -126,9 +126,10 @@ async function connectToDatabase(filename) {
 // Инициализация таблицы elements
 async function initializeDatabase() {
     return new Promise((resolve, reject) => {
-        db.run(
+        _db.run(
             `CREATE TABLE IF NOT EXISTS elements (
                 globalid TEXT NOT NULL UNIQUE,
+                expressID INT,
                 vocabulary TEXT,
                 RUS_DivisionNumber TEXT,
                 RUS_StartDatePlan TEXT,
@@ -149,30 +150,29 @@ async function initializeDatabase() {
 }
 
 // Функция для добавления строки в таблицу elements
-async function addElement(filename, globalid, divisionNumber, startDatePlan, startDateIs, endDatePlan, endDateIs) {
-    if (!db) {
+async function addElement(filename, globalid, expressID) {
+    if (!_db) {
       connectToDatabase(filename);
     }
 
     return new Promise((resolve, reject) => {
         // Проверяем, существует ли строка с таким globalid
-        db.get(
+        _db.get(
             `SELECT globalid FROM elements WHERE globalid = ?`,
             [globalid],
             (err, row) => {
                 if (err) {
                     reject(`Ошибка при проверке наличия globalid: ${err.message}`);
                 } else if (row) {
-                    resolve(`Строка с globalid "${globalid}" уже существует.`);
+                  updateElement(filename, globalid, {"expressID": expressID});
+                  resolve(`Строка с globalid "${globalid}" уже существует.`);
                 } else {
                     // Если строки с таким globalid нет, добавляем новую запись
-                    db.run(
+                    _db.run(
                         `INSERT INTO elements (
-                            globalid, RUS_DivisionNumber, 
-                            RUS_StartDatePlan, RUS_StartDateIs, 
-                            RUS_EndDatePlan, RUS_EndDateIs
-                        ) VALUES (?, ?, ?, ?, ?, ?)`,
-                        [globalid, divisionNumber, startDatePlan, startDateIs, endDatePlan, endDateIs],
+                            globalid, expressID
+                        ) VALUES (?, ?)`,
+                        [globalid, expressID],
                         (err) => {
                             if (err) {
                                 reject(`Ошибка при добавлении строки: ${err.message}`);
@@ -189,12 +189,12 @@ async function addElement(filename, globalid, divisionNumber, startDatePlan, sta
 
 // Функция для получения данных по globalid
 async function getElementByGlobalId(filename, globalid) {
-    if (!db) {
+    if (!_db) {
       connectToDatabase(filename);
     }
 
     return new Promise((resolve, reject) => {
-        db.get(
+        _db.get(
             `SELECT * FROM elements WHERE globalid = ?`,
             [globalid],
             (err, row) => {
@@ -212,13 +212,15 @@ async function getElementByGlobalId(filename, globalid) {
 async function updateElement(filename, globalid, fieldsToUpdate) {
 
   // console.log("updateElement filename", filename)
-  if (!db) {
+  if (!_db) {
     connectToDatabase(filename);
   }
 
   return new Promise((resolve, reject) => {
       // Проверяем, существует ли строка с таким globalid
-      db.get(
+      // ensureColumnExists("expressID", "INT")
+
+      _db.get(
           `SELECT globalid FROM elements WHERE globalid = ?`,
           [globalid],
           (err, row) => {
@@ -253,11 +255,12 @@ async function updateElement(filename, globalid, fieldsToUpdate) {
                   const sql = `UPDATE elements SET ${updates.join(', ')} WHERE globalid = ?`;
 
                   // Выполняем запрос
-                  db.run(sql, values, (err) => {
+                  _db.run(sql, values, (err) => {
                       if (err) {
                           reject(`Ошибка при обновлении строки: ${err.message}`);
                       } else {
-                          resolve(`Строка с globalid "${globalid}" успешно обновлена.`);
+                        console.log(`Строка с globalid "${globalid}" успешно обновлена параметрами: ${JSON.stringify(fieldsToUpdate)}`)
+                        resolve(`Строка с globalid "${globalid}" успешно обновлена.`);
                       }
                   });
               }
@@ -268,8 +271,8 @@ async function updateElement(filename, globalid, fieldsToUpdate) {
 
 async function columnExists(columnName) {
   return new Promise((resolve, reject) => {
-      db.all(
-          `PRAGMA table_info(${tableName})`,
+      _db.all(
+          `PRAGMA table_info(${_tableName})`,
           (err, rows) => {
               if (err) return reject(err);
               resolve(rows.some(row => row.name === columnName));
@@ -281,8 +284,8 @@ async function columnExists(columnName) {
 // Добавление новой колонки (исправленная версия)
 async function addColumn(columnName, columnType = 'TEXT') {
   return new Promise((resolve, reject) => {
-      db.run(
-          `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`,
+      _db.run(
+          `ALTER TABLE ${_tableName} ADD COLUMN ${columnName} ${columnType}`,
           (err) => {
               if (err) {
                   // Игнорируем ошибку "duplicate column", если колонка уже существует
@@ -314,8 +317,41 @@ async function ensureColumnExists(columnName, columnType = 'TEXT') {
       return result;
   } catch (err) {
       console.error(`Ошибка при работе с колонкой ${columnName}:`, err);
-      throw err;
   }
+}
+
+async function getAllKsiExpressID(filename) {
+  try {
+    if (!_db) {
+      connectToDatabase(filename);
+    }
+  
+    // Проверяем существование колонки
+    const columnExists = await new Promise((resolve) => {
+        _db.get(
+            `SELECT name FROM pragma_table_info('elements') WHERE name='RUS_ElementCode'`,
+            (err, row) => resolve(!!row)
+        );
+    });
+
+    if (!columnExists) {
+        throw new Error('Колонка RUS_ElementCode не существует в таблице elements');
+    }
+
+    // Получаем все значения
+    const elementExpressID = await new Promise((resolve, reject) => {
+        _db.all(
+            `SELECT expressID FROM elements WHERE RUS_ElementCode IS NOT NULL`,
+            (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows.map(row => row.expressID));
+            }
+        );
+    });
+    return elementExpressID;
+  } catch (err) {
+    console.error(`getAllElementCodes:`, err);
+}
 }
 
 // Экспорт функций
@@ -326,5 +362,6 @@ module.exports = {
   addElement,
   getElementByGlobalId,
   updateElement,
-  ensureColumnExists
+  ensureColumnExists,
+  getAllKsiExpressID
 };

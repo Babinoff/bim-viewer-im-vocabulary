@@ -121510,7 +121510,7 @@ async function createVocabulary(fileName) {
  * @param {string} globalid - идентификатор элемента
  * @returns {Promise<Object>} - результат добавления
  */
-async function addVocabulary(fileName, globalid) {
+async function addVocabulary(fileName, globalid, expressID) {
   try {
     const response = await fetch(`${API_BASE_URL}/add-vocabulary`, {
       method: 'POST',
@@ -121519,7 +121519,8 @@ async function addVocabulary(fileName, globalid) {
       },
       body: JSON.stringify({
         fileName: fileName,
-        globalid: encodeURIComponent(globalid)
+        globalid: encodeURIComponent(globalid),
+        expressID: expressID
       }),
     });
     
@@ -121610,14 +121611,35 @@ async function getFromAi(ifcClass, elementType) {
   }
 }
 
+async function getAllKsiExpressIds(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-all-ksi-express-id/?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching vocabulary:', error);
+    throw error;
+  }
+}
+
 // Экспорт всех методов
-var api = {
+var apiService = {
   getModelInfo,
   createVocabulary,
   addVocabulary,
   updateVocabulary,
   getVocabulary,
-  getFromAi
+  getFromAi,
+  getAllKsiExpressIds
 };
 
 // GUI Manager Library
@@ -121670,9 +121692,9 @@ class GUIManager {
     }
 
     // Prepare properties for display
-    props.psets = JSON.stringify(props.psets);
-    console.log("props.psets", JSON.stringify(props.psets));
-    console.log("props.mats", JSON.stringify(props.mats));
+    // props.psets = JSON.stringify(props.psets);
+    // console.log("props.psets", JSON.stringify(props.psets));
+    // console.log("props.mats", JSON.stringify(props.mats));
     props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
     props.Name = this.decodeUnicodeEscape(props.Name.value);
     
@@ -121683,7 +121705,7 @@ class GUIManager {
 
     // Create property entries
     for (let key in props) {
-      console.log(key, props[key]);
+      // console.log(key, props[key])
       this.createPropertyEntry(key, props[key]);
     }
 
@@ -121717,23 +121739,18 @@ class GUIManager {
 
   updatePropsFromVocabulary(resultFromVocabulary, props) {
     console.log("resultFromVocabulary", resultFromVocabulary);
-    // const vocabularyMappings = {
-    //   'RUS_DivisionNumber': { prop: 'RUS_DivisionNumber', input: this.input_DivisionNumber },
-    //   'RUS_StartDatePlan': { prop: 'RUS_StartDatePlan', input: this.input_StartDatePlan },
-    //   'RUS_StartDateIs': { prop: 'RUS_StartDateIs', input: this.input_StartDateIs },
-    //   'RUS_EndDatePlan': { prop: 'RUS_EndDatePlan', input: this.input_EndDatePlan },
-    //   'RUS_EndDateIs': { prop: 'RUS_EndDateIs', input: this.input_EndDateIs }
-    // };
-
     for (const [key, value] of Object.entries(resultFromVocabulary)) {
-      if (key.includes("RUS")) {
+      if (key.includes("RUS") && value) {
         props[key] = value;
         try{
           const input = document.getElementById(`input_${key}`);
-          input.disabled = true;
+          console.log("updatePropsFromVocabulary input", input);
+          if (input){
+            input.disabled = true;
+          }
         }
         catch (error) {
-        console.error('Error:', error);
+          console.error('Error:', error);
         }
       }
     }
@@ -121843,7 +121860,7 @@ class GUIManager {
     const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
     // console.log('constructTreeMenuNode addVocabulary')
     try {
-      await this.api.addVocabulary(this.fileName, props.GlobalId.value);
+      await this.api.addVocabulary(this.fileName, props.GlobalId.value, node.expressID);
     } catch (error) {
       console.error('Error:', error);
     }
@@ -122329,10 +122346,10 @@ const projects = [
     name: "Renga коттедж для сериала",
     id: "1000011",
   },
-  {
-    name: "van_gogh_house",
-    id: "1000012",
-  },
+  // {
+  //   name: "van_gogh_house",
+  //   id: "1000012",
+  // },
 ];
 
 // List of categories names
@@ -122373,21 +122390,38 @@ let _globalid;
 let _expressID;
 let _elemKsiCode;
 let _numberOfElements;
+let _allHighlightKsiIds = [];
+let _elemCounter = 0;
+let _isCancelled = false;
 let _modelInfo = {
   exists: false,
   message: ``,
   rowCount: null
 };
+new MeshLambertMaterial({  
+  color: 0xcc0000,  // Red color  
+  opacity: 0.5,  
+  transparent: true,  
+  depthTest: false,  
+  side: 2 // DoubleSide  
+});
+const _customKsiMaterial = new MeshLambertMaterial({  
+  color: 0xAAFCA8,  // Red color  
+  opacity: 0.9,  
+  transparent: true,  
+  depthTest: false,  
+  side: 1 // DoubleSide  
+}); 
 
 for (let proj of projects) {
   if (proj.id === currentProjectID) {
     _fileName = proj.name;
     _path = "./models/" + _fileName + ".ifc"; // get path into this /get-model-info
     try {
-      _modelInfo = await api.getModelInfo(_fileName);
+      _modelInfo = await apiService.getModelInfo(_fileName);
       // console.log("modelInfo", _modelInfo)
       if (_modelInfo.exists == false){
-        const result = await api.createVocabulary(_fileName);
+        const result = await apiService.createVocabulary(_fileName);
         // console.log("createVocabulary result", result)
       }
     } catch (error) {
@@ -122400,7 +122434,7 @@ const guiManager = new GUIManager(
   _viewer, 
   _viewer.IFC.loader.ifcManager,
   scene, 
-  api, 
+  apiService, 
   _fileName,
   categories
 );
@@ -122415,7 +122449,7 @@ async function loadIfc(url) {
   _model.removeFromParent(); //for ifc categories filter
   const ifcProject = await _viewer.IFC.getSpatialStructure(_model.modelID);
   await guiManager.setupAllCategories(); //for ifc categories filter
-  const modelInfo = await api.getModelInfo(_fileName);
+  const modelInfo = await apiService.getModelInfo(_fileName);
   const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
   // Рекурсивный подсчёт элементов в структуре
   let highlightIds = [];
@@ -122432,16 +122466,23 @@ async function loadIfc(url) {
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   const btnGetData = document.getElementById("getData");
   console.log("btnGetData.onclick", btnGetData);
-  if (_numberOfElements != modelInfo.rowCount){
-      //создавать элементы словаря
-    structure.children.forEach((child) => {
-      guiManager.constructVocabulary(child);
-    });
-  }
+  structure.children.forEach((child) => {
+    guiManager.constructVocabulary(child);
+  });
+  // if (_numberOfElements != modelInfo.rowCount){
+  //     //создавать элементы словаря
+  //   structure.children.forEach((child) => {
+  //     guiManager.constructVocabulary(child);
+  //   });
+  // }
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
 
-loadIfc(_path);
+loadIfc(_path); 
+
+// Set this material as your selection material  
+// _viewer.IFC.selector.highlight.material = customMaterial; 
+// _viewer.IFC.selector.selection.material = _customSelectMaterial;
 
 //UI elements
 
@@ -122459,10 +122500,11 @@ toolbarBottom();
 window.onmousemove = () => _viewer.IFC.selector.prePickIfcItem();
 
 window.ondblclick = async () => {
-  _expressID = await _viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
-  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", _expressID);
-  if (!_expressID) return;
-  const { modelID, id } = _expressID;
+  const ifcItem = await _viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
+  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", ifcItem);
+  if (!ifcItem) return;
+  const { modelID, id } = ifcItem;
+  _expressID = id;
   const props = await _viewer.IFC.getProperties(modelID, id, true, false);
   _globalid = encodeURIComponent(props.GlobalId.value);
 
@@ -122567,7 +122609,7 @@ dialog.addEventListener('submit', async (event) => {
     };
     // console.log("addEventListener fields", fields)
     dialog.close();
-    api.updateVocabulary(_fileName, _globalid, fields);
+    apiService.updateVocabulary(_fileName, _globalid, fields);
   } catch (error) {
     console.error('Error:', error);
     // alert('Connection error!');
@@ -122590,7 +122632,7 @@ btnGetData.onclick = async function() {
     // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
     // // const result = await api.getFromAi("ifcWall", "Перегородка")
     // const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
-    const result = await getKsiForElement(_expressID.id);
+    const result = await getKsiForElement(_expressID);
     console.log("btnGetData result", result);
     _elemKsiCode = result;
     const ksiInfoInput = document.getElementById("ksi_info");
@@ -122605,19 +122647,19 @@ const btnSendData = document.getElementById("sendData");
 btnSendData.onclick = async function() {
   try {
     console.log("btnSendData.onclick");
-    const result = await api.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
+    const result = await apiService.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
     if (result.success == true){
       const ksiInfoInput = document.getElementById("ksi_info");
       ksiInfoInput.style.backgroundColor = '#8cff08';
+      _allHighlightKsiIds.push(_expressID);
+      console.log("btnSendData _expressID _allHighlightKsiIds", _expressID, _allHighlightKsiIds);
+      createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds");
     }
     console.log("btnSendData result", result);
   } catch (error) {
     console.error('Error:', error);
   }
 };
-
-let _elemCounter = 0;
-let _isCancelled = false;
 
 async function getKsiForElement(expressID) {
   _elemCounter += 1;
@@ -122632,69 +122674,40 @@ async function getKsiForElement(expressID) {
   props = await guiManager.normaliseProps(props);
   console.log("getKsiForElement expressID props", expressID, props);
   // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
-  return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+  return await apiService.getFromAi(props.type, `${props.Name} ${props.mat}`);
 }
-
-const customSelectMaterial = new MeshLambertMaterial({  
-  color: 0xcc0000,  // Red color  
-  opacity: 0.5,  
-  transparent: true,  
-  depthTest: false,  
-  side: 2 // DoubleSide  
-});
-
-const customKsiMaterial = new MeshLambertMaterial({  
-  color: 0xAAFCA8,  // Red color  
-  opacity: 0.9,  
-  transparent: true,  
-  depthTest: false,  
-  side: 1 // DoubleSide  
-});  
-
-// Set this material as your selection material  
-// _viewer.IFC.selector.highlight.material = customMaterial; 
-_viewer.IFC.selector.selection.material = customSelectMaterial;
 
 const btnAllKsi = document.getElementById("btnAllKsi");
 btnAllKsi.onclick = async function() {
   try {
     _isCancelled = false;
-    _elemCounter = 0;
+    _elemCounter = _allHighlightKsiIds.length;
     showProgressBar();
     console.log("btnAllKsi.onclick");
     const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
     console.log("btnAllKsi structure", structure);
-    let highlightIds = [];
+    // let highlightIds = []
     async function setKsiOnAllElements(item) {
-      highlightIds.push(item.expressID);
-      // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds);
-      let subset = _viewer.IFC.loader.ifcManager.createSubset({  
-        modelID: _model.modelID,  
-        ids: highlightIds,  
-        material: customKsiMaterial,  
-        scene: _viewer.context.getScene(),  
-        removePrevious: true,
-        customID: "KsiIds" 
-      });
-      let count = item.children.length;
-      console.log("btnAllKsi setKsiOnAllElements count", count);
-      if (item.children.length == 0){
-        const progressOverlay = document.getElementById("progressBar");
-        progressOverlay.style.backgroundColor = '#bcbcbc';
-        const ksiCode = await getKsiForElement(item.expressID);
-
-        const props = await _viewer.IFC.getProperties(_model.modelID, item.expressID, true, false);
-
-        const globalid = encodeURIComponent(props.GlobalId.value);
-        // console.log("btnAllKsi setKsiOnAllElements _fileName, globalid, {RUS_ElementCode:ksiCode}", _fileName, globalid, ksiCode);
-        const result = await api.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
-        if (result.success == true){
-          progressOverlay.style.backgroundColor = '#8cff08';
+      if (!_allHighlightKsiIds.includes(item.expressID))
+        _allHighlightKsiIds.push(item.expressID);
+        createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds");
+        let count = item.children.length;
+        console.log("btnAllKsi setKsiOnAllElements count", count);
+        if (item.children.length == 0){
+          const progressOverlay = document.getElementById("progressBar");
+          progressOverlay.style.backgroundColor = '#bcbcbc';
+          const ksiCode = await getKsiForElement(item.expressID);
+          const props = await _viewer.IFC.getProperties(_model.modelID, item.expressID, true, false);
+          const globalid = encodeURIComponent(props.GlobalId.value);
+          // console.log("btnAllKsi setKsiOnAllElements _fileName, globalid, {RUS_ElementCode:ksiCode}", _fileName, globalid, ksiCode);
+          const result = await apiService.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
+          if (result.success == true){
+            progressOverlay.style.backgroundColor = '#8cff08';
+          }
+          console.log("btnAllKsi setKsiOnAllElements ksiCode", ksiCode);
+          // Даём браузеру время на отрисовку
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        console.log("btnAllKsi setKsiOnAllElements ksiCode", ksiCode);
-        // Даём браузеру время на отрисовку
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
       for (const child of item.children) {
         if (_isCancelled) {
           console.log("Обработка отменена");
@@ -122702,14 +122715,15 @@ btnAllKsi.onclick = async function() {
         }
         count += await setKsiOnAllElements(child);
       }
-      subset = _viewer.IFC.loader.ifcManager.createSubset({  
-        modelID: _model.modelID,  
-        ids: [],  
-        material: customKsiMaterial,  
-        scene: _viewer.context.getScene(),  
-        removePrevious: true,
-        customID: "KsiIds" 
-      });
+      // createSubsetForColor([], null, "KsiIds")
+      // subset = _viewer.IFC.loader.ifcManager.createSubset({  
+      //   modelID: _model.modelID,  
+      //   ids: [],  
+      //   material: customKsiMaterial,  
+      //   scene: _viewer.context.getScene(),  
+      //   removePrevious: true,
+      //   customID: "KsiIds" 
+      // });
       // console.log("btnAllKsi.subset", subset);
       return count;
     }
@@ -122723,6 +122737,18 @@ btnAllKsi.onclick = async function() {
     hideProgressBar();
   }
 };
+
+function createSubsetForColor(highlightIds, material, subsetName){
+  // console.log("createSubsetForColor(highlightIds, material, subsetName)", highlightIds, material, subsetName)
+  _viewer.IFC.loader.ifcManager.createSubset({  
+    modelID: _model.modelID,  
+    ids: highlightIds,  
+    material: material,  
+    scene: _viewer.context.getScene(),  
+    removePrevious: true,
+    customID: subsetName 
+  });
+}
 
 console.log("viewer.IFC.selector",_viewer.IFC.selector);
 
@@ -122780,5 +122806,32 @@ btnAllKsiCancel.onclick = async function() {
   }
   finally{
     hideProgressBar();
+  }
+};
+  
+const btnOnKsi = document.getElementById("btnOnKsi");
+btnOnKsi.onclick = async function() {
+  try {
+    const response = await apiService.getAllKsiExpressIds(_fileName);
+    console.log("btnOnKsi apiService.getAllKsiExpressIds response", response);
+    if (response.success){
+      _allHighlightKsiIds = response.allKsiExpressID;
+      createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds");
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+  finally{
+    hideProgressBar();
+  }
+};
+
+const btnOffKsi = document.getElementById("btnOffKsi");
+btnOffKsi.onclick = async function() {
+  try {
+    _allHighlightKsiIds = [];
+    createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds");
+  } catch (error) {
+    console.error('Error:', error);
   }
 };

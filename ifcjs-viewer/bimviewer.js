@@ -29,6 +29,7 @@ import {
   IFCROOF,
   IFCBUILDINGELEMENTPROXY,
 } from "web-ifc";
+import apiService from "./api-service";
 
 // List of categories names
 const categories = {
@@ -68,11 +69,28 @@ let _globalid;
 let _expressID;
 let _elemKsiCode;
 let _numberOfElements;
+let _allHighlightKsiIds = [];
+let _elemCounter = 0;
+let _isCancelled = false;
 let _modelInfo = {
   exists: false,
   message: ``,
   rowCount: null
 };
+const _customSelectMaterial = new MeshLambertMaterial({  
+  color: 0xcc0000,  // Red color  
+  opacity: 0.5,  
+  transparent: true,  
+  depthTest: false,  
+  side: 2 // DoubleSide  
+});
+const _customKsiMaterial = new MeshLambertMaterial({  
+  color: 0xAAFCA8,  // Red color  
+  opacity: 0.9,  
+  transparent: true,  
+  depthTest: false,  
+  side: 1 // DoubleSide  
+}); 
 
 for (let proj of projects) {
   if (proj.id === currentProjectID) {
@@ -127,16 +145,23 @@ async function loadIfc(url) {
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   const btnGetData = document.getElementById("getData");
   console.log("btnGetData.onclick", btnGetData)
-  if (_numberOfElements != modelInfo.rowCount){
-      //создавать элементы словаря
-    structure.children.forEach((child) => {
-      guiManager.constructVocabulary(child);
-    });
-  }
+  structure.children.forEach((child) => {
+    guiManager.constructVocabulary(child);
+  });
+  // if (_numberOfElements != modelInfo.rowCount){
+  //     //создавать элементы словаря
+  //   structure.children.forEach((child) => {
+  //     guiManager.constructVocabulary(child);
+  //   });
+  // }
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
 
-loadIfc(_path);
+loadIfc(_path); 
+
+// Set this material as your selection material  
+// _viewer.IFC.selector.highlight.material = customMaterial; 
+// _viewer.IFC.selector.selection.material = _customSelectMaterial;
 
 //UI elements
 
@@ -154,10 +179,11 @@ toolbarBottom();
 window.onmousemove = () => _viewer.IFC.selector.prePickIfcItem();
 
 window.ondblclick = async () => {
-  _expressID = await _viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
-  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", _expressID)
-  if (!_expressID) return;
-  const { modelID, id } = _expressID;
+  const ifcItem = await _viewer.IFC.selector.pickIfcItem(); //highlightIfcItem hides all other elements
+  console.log("window.ondblclick viewer.IFC.selector.pickIfcItem()", ifcItem)
+  if (!ifcItem) return;
+  const { modelID, id } = ifcItem;
+  _expressID = id;
   const props = await _viewer.IFC.getProperties(modelID, id, true, false);
   _globalid = encodeURIComponent(props.GlobalId.value);
 
@@ -285,7 +311,7 @@ btnGetData.onclick = async function() {
     // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
     // // const result = await api.getFromAi("ifcWall", "Перегородка")
     // const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
-    const result = await getKsiForElement(_expressID.id)
+    const result = await getKsiForElement(_expressID)
     console.log("btnGetData result", result);
     _elemKsiCode = result;
     const ksiInfoInput = document.getElementById("ksi_info");
@@ -304,15 +330,15 @@ btnSendData.onclick = async function() {
     if (result.success == true){
       const ksiInfoInput = document.getElementById("ksi_info");
       ksiInfoInput.style.backgroundColor = '#8cff08';
+      _allHighlightKsiIds.push(_expressID);
+      console.log("btnSendData _expressID _allHighlightKsiIds", _expressID, _allHighlightKsiIds)
+      createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds");
     }
     console.log("btnSendData result", result);
   } catch (error) {
     console.error('Error:', error);
   }
 }
-
-let _elemCounter = 0;
-let _isCancelled = false;
 
 async function getKsiForElement(expressID) {
   _elemCounter += 1;
@@ -330,66 +356,37 @@ async function getKsiForElement(expressID) {
   return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
 }
 
-const customSelectMaterial = new MeshLambertMaterial({  
-  color: 0xcc0000,  // Red color  
-  opacity: 0.5,  
-  transparent: true,  
-  depthTest: false,  
-  side: 2 // DoubleSide  
-});
-
-const customKsiMaterial = new MeshLambertMaterial({  
-  color: 0xAAFCA8,  // Red color  
-  opacity: 0.9,  
-  transparent: true,  
-  depthTest: false,  
-  side: 1 // DoubleSide  
-});  
-
-// Set this material as your selection material  
-// _viewer.IFC.selector.highlight.material = customMaterial; 
-_viewer.IFC.selector.selection.material = customSelectMaterial;
-
 const btnAllKsi = document.getElementById("btnAllKsi");
 btnAllKsi.onclick = async function() {
   try {
     _isCancelled = false;
-    _elemCounter = 0;
+    _elemCounter = _allHighlightKsiIds.length;
     showProgressBar();
     console.log("btnAllKsi.onclick");
     const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
     console.log("btnAllKsi structure", structure)
-    let highlightIds = []
+    // let highlightIds = []
     async function setKsiOnAllElements(item) {
-      highlightIds.push(item.expressID)
-      // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds);
-      let subset = _viewer.IFC.loader.ifcManager.createSubset({  
-        modelID: _model.modelID,  
-        ids: highlightIds,  
-        material: customKsiMaterial,  
-        scene: _viewer.context.getScene(),  
-        removePrevious: true,
-        customID: "KsiIds" 
-      });
-      let count = item.children.length;
-      console.log("btnAllKsi setKsiOnAllElements count", count)
-      if (item.children.length == 0){
-        const progressOverlay = document.getElementById("progressBar");
-        progressOverlay.style.backgroundColor = '#bcbcbc';
-        const ksiCode = await getKsiForElement(item.expressID)
-
-        const props = await _viewer.IFC.getProperties(_model.modelID, item.expressID, true, false);
-
-        const globalid = encodeURIComponent(props.GlobalId.value);
-        // console.log("btnAllKsi setKsiOnAllElements _fileName, globalid, {RUS_ElementCode:ksiCode}", _fileName, globalid, ksiCode);
-        const result = await api.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
-        if (result.success == true){
-          progressOverlay.style.backgroundColor = '#8cff08';
+      if (!_allHighlightKsiIds.includes(item.expressID))
+        _allHighlightKsiIds.push(item.expressID);
+        createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds")
+        let count = item.children.length;
+        console.log("btnAllKsi setKsiOnAllElements count", count)
+        if (item.children.length == 0){
+          const progressOverlay = document.getElementById("progressBar");
+          progressOverlay.style.backgroundColor = '#bcbcbc';
+          const ksiCode = await getKsiForElement(item.expressID)
+          const props = await _viewer.IFC.getProperties(_model.modelID, item.expressID, true, false);
+          const globalid = encodeURIComponent(props.GlobalId.value);
+          // console.log("btnAllKsi setKsiOnAllElements _fileName, globalid, {RUS_ElementCode:ksiCode}", _fileName, globalid, ksiCode);
+          const result = await api.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
+          if (result.success == true){
+            progressOverlay.style.backgroundColor = '#8cff08';
+          }
+          console.log("btnAllKsi setKsiOnAllElements ksiCode", ksiCode)
+          // Даём браузеру время на отрисовку
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        console.log("btnAllKsi setKsiOnAllElements ksiCode", ksiCode)
-        // Даём браузеру время на отрисовку
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
       for (const child of item.children) {
         if (_isCancelled) {
           console.log("Обработка отменена");
@@ -397,14 +394,15 @@ btnAllKsi.onclick = async function() {
         }
         count += await setKsiOnAllElements(child);
       }
-      subset = _viewer.IFC.loader.ifcManager.createSubset({  
-        modelID: _model.modelID,  
-        ids: [],  
-        material: customKsiMaterial,  
-        scene: _viewer.context.getScene(),  
-        removePrevious: true,
-        customID: "KsiIds" 
-      });
+      // createSubsetForColor([], null, "KsiIds")
+      // subset = _viewer.IFC.loader.ifcManager.createSubset({  
+      //   modelID: _model.modelID,  
+      //   ids: [],  
+      //   material: customKsiMaterial,  
+      //   scene: _viewer.context.getScene(),  
+      //   removePrevious: true,
+      //   customID: "KsiIds" 
+      // });
       // console.log("btnAllKsi.subset", subset);
       return count;
     }
@@ -417,6 +415,18 @@ btnAllKsi.onclick = async function() {
     updateProgressBar(100);
     hideProgressBar();
   }
+}
+
+function createSubsetForColor(highlightIds, material, subsetName){
+  // console.log("createSubsetForColor(highlightIds, material, subsetName)", highlightIds, material, subsetName)
+  const subset = _viewer.IFC.loader.ifcManager.createSubset({  
+    modelID: _model.modelID,  
+    ids: highlightIds,  
+    material: material,  
+    scene: _viewer.context.getScene(),  
+    removePrevious: true,
+    customID: subsetName 
+  });
 }
 
 console.log("viewer.IFC.selector",_viewer.IFC.selector)
@@ -478,3 +488,29 @@ btnAllKsiCancel.onclick = async function() {
   }
 }
   
+const btnOnKsi = document.getElementById("btnOnKsi");
+btnOnKsi.onclick = async function() {
+  try {
+    const response = await apiService.getAllKsiExpressIds(_fileName);
+    console.log("btnOnKsi apiService.getAllKsiExpressIds response", response);
+    if (response.success){
+      _allHighlightKsiIds = response.allKsiExpressID;
+      createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds");
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+  finally{
+    hideProgressBar();
+  }
+}
+
+const btnOffKsi = document.getElementById("btnOffKsi");
+btnOffKsi.onclick = async function() {
+  try {
+    _allHighlightKsiIds = [];
+    createSubsetForColor(_allHighlightKsiIds, _customKsiMaterial, "KsiIds")
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}

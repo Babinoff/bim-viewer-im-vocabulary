@@ -75,10 +75,10 @@ const projects = [
     name: "Renga коттедж для сериала",
     id: "1000011",
   },
-  {
-    name: "van_gogh_house",
-    id: "1000012",
-  },
+  // {
+  //   name: "van_gogh_house",
+  //   id: "1000012",
+  // },
 ];
 
 for (let proj of projects)

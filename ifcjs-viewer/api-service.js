@@ -57,7 +57,7 @@ async function createVocabulary(fileName) {
  * @param {string} globalid - идентификатор элемента
  * @returns {Promise<Object>} - результат добавления
  */
-async function addVocabulary(fileName, globalid) {
+async function addVocabulary(fileName, globalid, expressID) {
   try {
     const response = await fetch(`${API_BASE_URL}/add-vocabulary`, {
       method: 'POST',
@@ -66,7 +66,8 @@ async function addVocabulary(fileName, globalid) {
       },
       body: JSON.stringify({
         fileName: fileName,
-        globalid: encodeURIComponent(globalid)
+        globalid: encodeURIComponent(globalid),
+        expressID: expressID
       }),
     });
     
@@ -157,6 +158,26 @@ async function getFromAi(ifcClass, elementType) {
   }
 }
 
+async function getAllKsiExpressIds(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-all-ksi-express-id/?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching vocabulary:', error);
+    throw error;
+  }
+}
+
 // Экспорт всех методов
 export default {
   getModelInfo,
@@ -164,5 +185,6 @@ export default {
   addVocabulary,
   updateVocabulary,
   getVocabulary,
-  getFromAi
+  getFromAi,
+  getAllKsiExpressIds
 };

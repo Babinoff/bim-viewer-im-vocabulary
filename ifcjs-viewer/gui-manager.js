@@ -48,9 +48,9 @@ export class GUIManager {
     }
 
     // Prepare properties for display
-    props.psets = JSON.stringify(props.psets);
-    console.log("props.psets", JSON.stringify(props.psets));
-    console.log("props.mats", JSON.stringify(props.mats));
+    // props.psets = JSON.stringify(props.psets);
+    // console.log("props.psets", JSON.stringify(props.psets));
+    // console.log("props.mats", JSON.stringify(props.mats));
     props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
     props.Name = this.decodeUnicodeEscape(props.Name.value)
     
@@ -61,7 +61,7 @@ export class GUIManager {
 
     // Create property entries
     for (let key in props) {
-      console.log(key, props[key])
+      // console.log(key, props[key])
       this.createPropertyEntry(key, props[key]);
     }
 
@@ -95,23 +95,18 @@ export class GUIManager {
 
   updatePropsFromVocabulary(resultFromVocabulary, props) {
     console.log("resultFromVocabulary", resultFromVocabulary)
-    // const vocabularyMappings = {
-    //   'RUS_DivisionNumber': { prop: 'RUS_DivisionNumber', input: this.input_DivisionNumber },
-    //   'RUS_StartDatePlan': { prop: 'RUS_StartDatePlan', input: this.input_StartDatePlan },
-    //   'RUS_StartDateIs': { prop: 'RUS_StartDateIs', input: this.input_StartDateIs },
-    //   'RUS_EndDatePlan': { prop: 'RUS_EndDatePlan', input: this.input_EndDatePlan },
-    //   'RUS_EndDateIs': { prop: 'RUS_EndDateIs', input: this.input_EndDateIs }
-    // };
-
     for (const [key, value] of Object.entries(resultFromVocabulary)) {
-      if (key.includes("RUS")) {
+      if (key.includes("RUS") && value) {
         props[key] = value;
         try{
           const input = document.getElementById(`input_${key}`);
-          input.disabled = true;
+          console.log("updatePropsFromVocabulary input", input)
+          if (input){
+            input.disabled = true;
+          }
         }
         catch (error) {
-        console.error('Error:', error);
+          console.error('Error:', error);
         }
       }
     }
@@ -221,7 +216,7 @@ export class GUIManager {
     const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
     // console.log('constructTreeMenuNode addVocabulary')
     try {
-      await this.api.addVocabulary(this.fileName, props.GlobalId.value);
+      await this.api.addVocabulary(this.fileName, props.GlobalId.value, node.expressID);
     } catch (error) {
       console.error('Error:', error);
     }
