@@ -20,7 +20,10 @@ const port = 4000;
 const apiKey = process.env.MISTRAL_API_KEY;
 const agentId = process.env.MISTRAL_AGENT_KSI;
 const client = new Mistral({apiKey: apiKey});
-const ksiOcrFileId = 'f3ec9b24-5697-4038-af27-5cb27bae6fb7';
+const ksiOcrFileId = process.env.MISTRAL_OCR_FILE_KSI_TABLE;
+const logLoiFileId = process.env.MISTRAL_OCR_FILE_LOG_LOI_TABLE;
+const elemsParamsFileId = process.env.MISTRAL_OCR_FILE_ELEMS_PARAMS;
+
 
 // fetchToken()
 // const companies = fetchCompanies()
@@ -159,7 +162,7 @@ app.get('/get-vocabulary', async (req, res) => {
   }
 });
 
-app.get('/get-from-ai', async (req, res) => {
+app.get('/get-ksi-from-ai', async (req, res) => {
   try {
     // Новая валидация данных
     console.log("/get-from-ai req.body", req.query)
@@ -286,6 +289,8 @@ app.use(cors({
   origin: '*',
   methods: ['POST', 'GET']
 }));
+
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

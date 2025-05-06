@@ -140,7 +140,7 @@ async function getVocabulary(fileName, globalid) {
 
 async function getFromAi(ifcClass, elementType) {
   try {
-    const response = await fetch(`${API_BASE_URL}/get-from-ai/?ifcClass=${ifcClass}&elementType=${elementType}`, {
+    const response = await fetch(`${API_BASE_URL}/get-ksi-from-ai/?ifcClass=${ifcClass}&elementType=${elementType}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
