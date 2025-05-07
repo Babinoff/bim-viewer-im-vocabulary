@@ -2,7 +2,7 @@ import { Color } from "three";
 import { IfcViewerAPI } from "web-ifc-viewer";
 import api from './api-service';
 import { GUIManager } from './gui-manager.js'
-import { MeshLambertMaterial } from 'three';  
+import { MeshLambertMaterial, MeshStandardMaterial, DoubleSide } from 'three';  
 import {
   createCheckboxes,
   createIfcTreeMenu,
@@ -84,13 +84,11 @@ const _customSelectMaterial = new MeshLambertMaterial({
   depthTest: false,  
   side: 2 // DoubleSide  
 });
-const _customKsiMaterial = new MeshLambertMaterial({  
-  color: 0xAAFCA8,  // Red color  
-  opacity: 0.9,  
-  transparent: true,  
-  depthTest: false,  
-  side: 1 // DoubleSide  
-}); 
+const _customKsiMaterial =  new MeshLambertMaterial({
+  color: 0x00ff00,  // Зелёный цвет
+  transparent: true,  // Отключаем прозрачность (по умолчанию false)
+  opacity: 0.1,         // Полная непрозрачность (по умолчанию 1)
+});
 
 for (let proj of projects) {
   if (proj.id === currentProjectID) {
