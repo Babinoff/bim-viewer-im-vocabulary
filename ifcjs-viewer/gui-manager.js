@@ -51,13 +51,13 @@ export class GUIManager {
     // props.psets = JSON.stringify(props.psets);
     // console.log("props.psets", JSON.stringify(props.psets));
     // console.log("props.mats", JSON.stringify(props.mats));
-    props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name.value)).join('_');
-    props.Name = this.decodeUnicodeEscape(props.Name.value)
+    // props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name?.value)).join('_');
+    // props.Name = this.decodeUnicodeEscape(props.Name.value)
     
     const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
     console.log("typeID:", typeID);
     props.type = typeID;
-    // props = await this.normaliseProps(props);
+    props = await this.normaliseProps(props);
 
     // Create property entries
     for (let key in props) {

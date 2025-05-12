@@ -87,7 +87,8 @@ const _customSelectMaterial = new MeshLambertMaterial({
 const _customKsiMaterial =  new MeshLambertMaterial({
   color: 0x00ff00,  // Зелёный цвет
   transparent: true,  // Отключаем прозрачность (по умолчанию false)
-  opacity: 0.1,         // Полная непрозрачность (по умолчанию 1)
+  opacity: 1,         // Полная непрозрачность (по умолчанию 1)
+  depthTest: false
 });
 
 for (let proj of projects) {
@@ -141,8 +142,8 @@ async function loadIfc(url) {
   }
   _numberOfElements = countElements(structure);
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
-  const btnGetData = document.getElementById("getData");
-  console.log("btnGetData.onclick", btnGetData)
+  // const btnGetData = document.getElementById("getData");
+  // console.log("btnGetData.onclick", btnGetData)
   structure.children.forEach((child) => {
     guiManager.constructVocabulary(child);
   });
@@ -302,13 +303,7 @@ btnGetData.onclick = async function() {
     } else {
         console.log("Ничего не выделено!");
     }
-    // let props = await viewer.IFC.getProperties(0, _expressID.id, true, false);
-    // // console.log("btnGetData expressID", _expressID)
-    // props = await guiManager.normaliseProps(props);
-    // console.log("btnGetData props", props);
-    // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
-    // // const result = await api.getFromAi("ifcWall", "Перегородка")
-    // const result = await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
+
     const result = await getKsiForElement(_expressID)
     console.log("btnGetData result", result);
     _elemKsiCode = result;
@@ -350,7 +345,7 @@ async function getKsiForElement(expressID) {
   let props = await _viewer.IFC.getProperties(0, expressID, true, false);
   props = await guiManager.normaliseProps(props);
   console.log("getKsiForElement expressID props", expressID, props);
-  // console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
+  console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
   return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
 }
 
@@ -392,16 +387,6 @@ btnAllKsi.onclick = async function() {
         }
         count += await setKsiOnAllElements(child);
       }
-      // createSubsetForColor([], null, "KsiIds")
-      // subset = _viewer.IFC.loader.ifcManager.createSubset({  
-      //   modelID: _model.modelID,  
-      //   ids: [],  
-      //   material: customKsiMaterial,  
-      //   scene: _viewer.context.getScene(),  
-      //   removePrevious: true,
-      //   customID: "KsiIds" 
-      // });
-      // console.log("btnAllKsi.subset", subset);
       return count;
     }
     const numberOfElements = await setKsiOnAllElements(structure);

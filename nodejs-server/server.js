@@ -20,7 +20,7 @@ const port = 4000;
 const apiKey = process.env.MISTRAL_API_KEY;
 const agentId = process.env.MISTRAL_AGENT_KSI;
 const client = new Mistral({apiKey: apiKey});
-const ksiOcrFileId = process.env.MISTRAL_OCR_FILE_KSI_TABLE;
+const ksiOcrFileId = 'be265017-95c5-4d4d-9137-93942ee477ea'; //process.env.MISTRAL_OCR_FILE_KSI_TABLE;
 const logLoiFileId = process.env.MISTRAL_OCR_FILE_LOG_LOI_TABLE;
 const elemsParamsFileId = process.env.MISTRAL_OCR_FILE_ELEMS_PARAMS;
 
@@ -216,7 +216,7 @@ app.get('/get-ksi-from-ai', async (req, res) => {
           content: [
             {
               type: "text",
-              text: `${req.query.ifcClass} ${req.query.elementType}`,
+              text: `${ifcClass} ${elementType}`,
             },
             {
               type: "document_url",
