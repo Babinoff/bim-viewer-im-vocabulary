@@ -5,7 +5,7 @@ https://github.com/tangl-services/tangl-dev/tree/main/tangl-demo-playground
 Видео по концепции:  
 https://youtu.be/uUC4GL16YdQ?si=pdtIQ_nC9_K4jPjY
 
-Autodocumentation for this repository:
+Autodocumentation for this repository:  
 https://deepwiki.com/Babinoff/bim-viewer-im-vocabulary
 
 # Интеграция BIM-моделей с расширенными данными через SQLite и веб-вьюверы
