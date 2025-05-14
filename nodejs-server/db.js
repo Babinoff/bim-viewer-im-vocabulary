@@ -112,15 +112,20 @@ async function connectToDatabase(filename) {
       console.error(`Файл базы данных "${filename}.sqlite" не существует.`);
     }
 
-    // Подключаемся к базе данных
-    _db = new sqlite3.Database(dbPath, (err) => {
+    // Подключаемся к базе данных с настройками для конкурентного доступа
+    _db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE, (err) => {
         if (err) {
             throw new Error(`Ошибка при подключении к базе данных: ${err.message}`);
         }
     });
+
+    // Настройка режима работы с базой данных
+    _db.configure('busyTimeout', 30000); // Ожидание до 30 секунд при блокировке
+    _db.run('PRAGMA journal_mode = WAL'); // Использование WAL режима для лучшей конкурентности
+    _db.run('PRAGMA synchronous = NORMAL'); // Баланс между производительностью и надежностью
+
     console.log(`Подключение к базе данных "${filename}.sqlite" успешно установлено.`);
     await initializeDatabase(); // Инициализация таблицы
-    // await ensureColumnExists("RUS_ElementCode");
 }
 
 // Инициализация таблицы elements
