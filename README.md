@@ -4,6 +4,8 @@ https://github.com/tangl-services/tangl-dev/tree/main/tangl-demo-playground
 
 Видео по концепции:  
 https://youtu.be/uUC4GL16YdQ?si=pdtIQ_nC9_K4jPjY
+Видео по КСИ с ИИ: 
+https://youtu.be/XRev-AcXrAo
 
 Autodocumentation for this repository:  
 https://deepwiki.com/Babinoff/bim-viewer-im-vocabulary
