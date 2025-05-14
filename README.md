@@ -40,4 +40,5 @@ https://deepwiki.com/Babinoff/bim-viewer-im-vocabulary
 | `RUS_EndDatePlan`     | TEXT    | Плановая дата завершения работ. |
 | `RUS_EndDateIs`       | TEXT    | Фактическая дата завершения работ. |
 | `RUS_ElementCode`     | TEXT    | Код классификатора. |
-| `vocabulary`          | TEXT    | тестовое поле |
+| `vocabulary`          | TEXT    | Тестовое поле для теста|
+| `expressID`           | TEXT    | Идентификатор объекта для IFC.js |
