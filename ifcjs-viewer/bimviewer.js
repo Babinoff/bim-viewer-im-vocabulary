@@ -81,7 +81,7 @@ const _customSelectMaterial = new MeshLambertMaterial({
   color: 0xcc0000,  // Red color  
   opacity: 0.5,  
   transparent: true,  
-  depthTest: false,  
+  // depthTest: false,  
   side: 2 // DoubleSide  
 });
 const _customKsiMaterial =  new MeshLambertMaterial({
