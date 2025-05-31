@@ -6,4 +6,5 @@ tangl-dev
 Renga коттедж для сериала.rnp
 .env
 nodejs-server/models/
-
+.sqlite-shm
+.sqlite-wal
