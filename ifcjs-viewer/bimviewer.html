@@ -7,194 +7,6 @@
     <link rel="stylesheet" href="styles.css">
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script> -->
     <title>Document</title>
-    <style>
-      /* Стили для диалога */
-      dialog {
-          border: 1px solid #ccc;
-          border-radius: 8px;
-          padding: 20px;
-          box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-          width: 300px; /* Немного шире для удобства */
-      }
-      
-      /* Стили для виджетов */
-      .info-widgets {
-          position: absolute;
-          top: 50%; /* Центрирование по вертикали */
-          right: 0; /* Привязка к правому краю */
-          transform: translateY(-50%); /* Смещение вверх на половину высоты для точного центрирования */
-          /* width: 100%; */ /* Удаляем, так как виджеты будут сгруппированы */
-          /* left: 0; */ /* Удаляем */
-          height: auto; /* Высота по содержимому */
-          pointer-events: none;
-      }
-      .widget {
-          position: relative; /* Изменяем на relative для позиционирования внутри flex/grid контейнера */
-          background-color: rgba(255, 255, 255, 0.8);
-          border: 1px solid #ccc;
-          border-radius: 5px;
-          padding: 10px;
-          width: 200px;
-          margin-bottom: 10px; /* Добавляем отступ между виджетами */
-          pointer-events: auto;
-      }
-      /* Удаляем старые классы позиционирования */
-      /* .widget-top-left { top: 20px; left: 20px; } */
-      /* .widget-top-right { top: 20px; right: 20px; } */
-      /* .widget-bottom-left { bottom: 20px; left: 20px; } */
-      /* .widget-bottom-right { bottom: 20px; right: 20px; } */
-      /* Добавляем контейнер для вертикального расположения виджетов */
-      .info-widgets > div {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end; /* Выравнивание виджетов по правому краю внутри контейнера */
-          padding-right: 20px; /* Отступ от правого края экрана */
-      }
-      .widget h4 {
-          margin-top: 0;
-          margin-bottom: 10px;
-      }
-      .widget p {
-          margin: 5px 0;
-      }
-      .widget-top-left { top: 20px; left: 20px; }
-      .widget-top-right { top: 20px; right: 20px; }
-      .widget-bottom-left { bottom: 20px; left: 20px; }
-      .widget-bottom-right { bottom: 20px; right: 20px; }
-      dialog::backdrop {
-          background: rgba(0, 0, 0, 0.5);
-      }
-      label {
-          display: block;
-          margin-bottom: 10px;
-          font-weight: bold;
-      }
-      .input-group {
-          display: flex;
-          align-items: center;
-          margin-bottom: 15px;
-      }
-      .input-group label {
-          flex: 1; /* Лейбл занимает доступное пространство */
-          margin-right: 10px; /* Отступ между лейблом и инпутом */
-      }
-      .input-group input {
-          width: 150px; /* Фиксированная ширина инпутов */
-          padding: 8px;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          text-align: right; /* Выравнивание текста в инпуте по правому краю */
-      }
-      button {
-          padding: 8px 16px;
-          border: none;
-          border-radius: 4px;
-          background-color: #007bff;
-          color: white;
-          cursor: pointer;
-      }
-      button:hover {
-          background-color: #0056b3;
-      }
-      body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-      }
-      
-      #app-container {
-          position: relative;
-          width: 100%;
-          height: 100%;
-      }
-      
-      #viewer-container {
-          width: 100%;
-          height: 100%;
-      }
-      
-      #custom-buttons {
-          position: absolute;
-          top: 20px;
-          right: 20px;
-          z-index: 1000; /* Важно: кнопки должны быть выше вьювера */
-      }
-      
-      .custom-btn {
-          /* background: #4CAF50; */
-          color: white;
-          border: none;
-          padding: 10px 15px;
-          margin: 5px;
-          border-radius: 4px;
-          cursor: pointer;
-      }
-
-      .progress-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000; /* Должен быть выше всех элементов */
-          pointer-events: auto; /* Разрешаем события мыши */
-          visibility: hidden;
-          opacity: 0;
-          transition: opacity 0.3s ease, visibility 0.3s;
-      }
-
-      .progress-overlay.show {
-          visibility: visible;
-          opacity: 1;
-      }
-
-      .progress-container {
-          background-color: white;
-          padding: 20px;
-          border-radius: 8px;
-          width: 300px;
-          /* pointer-events должны быть auto по умолчанию */
-      }
-
-      .progress-bar {
-          height: 20px;
-          background-color: #e0e0e0;
-          border-radius: 10px;
-          margin: 10px 0;
-          overflow: hidden;
-      }
-
-      .progress {
-          height: 100%;
-          background-color: #4CAF50;
-          width: 0%;
-          transition: width 0.3s ease;
-      }
-
-      #cancelProgress {
-          position: relative;
-          z-index: 99999; /* Максимальный приоритет */
-          box-shadow: 0 0 0 3px red; /* Красная обводка для видимости */
-      }
-
-      .btn-cancel {
-          background-color: #ff4444;
-          pointer-events: auto; /* ← Явно разрешаем клики */
-          cursor: pointer; /* ← Обязательно для кнопок */
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          margin-top: 10px;
-          border-radius: 4px;
-          z-index: 1000;
-      }
-    </style>
   </head>
   <body>
     <div id="viewer-container"></div>
@@ -217,14 +29,65 @@
       </div>
     </div>
 
+    <dialog id="dialog" class="widget">
+      <form id="inputForm">
+        <h4>Информация об обслуживании</h4>
+        <div class="llm-content">
+          <div class="form-group">
+            <label>
+              График сервисного обслуживания:
+              <input id="input_RUS_ServiceSchedule" type="text" />
+            </label>
+            <label>
+              Дата ремонта:
+              <input id="input_RUS_RepairDate" type="text" />
+            </label>
+            <label>
+              Дата капитального ремонта:
+              <input id="input_RUS_OverhaulDate" type="text" />
+            </label>
+            <label>
+              Запасные части, инструменты и принадлежности:
+              <input id="input_RUS_SpareParts" type="text" />
+            </label>
+            <label>
+              Код оборудования:
+              <input id="input_RUS_EquipmentCode" type="text" />
+            </label>
+          </div>
+        </div>
+
+        <h4>KSI информация</h4>
+        <div class="llm-content">
+          <div class="form-group">
+            <label for="ksi_info">Код:</label>
+            <input type="text" id="ksi_info" readonly
+              placeholder="Здесь будет отображаться информация">
+          </div>
+          <div class="button-group">
+            <button id="getData" type="button" class="btn-primary">Запрос кода у ИИ</button>
+            <button id="sendData" type="button" class="btn-primary">Записать код</button>
+            <input type="submit" id="js-close" value="Сохранить" class="btn-primary" />
+          </div>
+        </div>
+      </form>
+    </dialog>
+
     <div class="info-widgets">
       <div>
+        <div class="widget" id="llmDialog">
+          <h4>ИИ контроль</h4>
+          <div class="llm-content">
+            <textarea id="llmOutput" rows="8" readonly style="width: 100%; background: transparent; border: none; resize: none;"></textarea>
+          </div>
+        </div>
+
         <div class="widget widget-air-supply">
           <h4>Воздухоснабжение</h4>
-          <p>Температура: <span id="air-temp">--</span> °C</p>
-          <p>Влажность: <span id="air-humidity">--</span> %</p>
           <p>Расход воздуха: <span id="air-flow">--</span> м³/ч</p>
+          <p>Температура приточного воздуха: <span id="air-supply-temp">--</span> °C</p>
           <p>Температура вытяжки: <span id="air-exhaust-temp">--</span> °C</p>
+          <p>Давление в системе: <span id="air-pressure">--</span> Па</p>
         </div>
 
         <div class="widget widget-power-supply">
@@ -235,10 +98,11 @@
         </div>
 
         <div class="widget widget-cooling-supply">
-          <h4>Холодоснабжение</h4>
-          <p>Температура воды (вход): <span id="cooling-water-temp-in">--</span> °C</p>
-          <p>Температура воды (выход): <span id="cooling-water-temp-out">--</span> °C</p>
-          <p>Мощность охлаждения: <span id="cooling-capacity">--</span> кВт</p>
+          <h4>Кондиционирование</h4>
+          <p>Температура в помещении: <span id="room-temp">--</span> °C</p>
+          <p>Влажность в помещении: <span id="room-humidity">--</span> %</p>
+          <p>Расход охлажденного воздуха: <span id="cooling-air-flow">--</span> м³/ч</p>
+          <p>Холодопроизводительность: <span id="cooling-capacity">--</span> кВт</p>
         </div>
       </div>
     </div>
@@ -246,3 +110,238 @@
     <script type="module" src="./bundle.js"></script>
   </body>
 </html>
+
+<style>
+  /* Стили для диалога */
+      dialog.widget {
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 10px;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+          width: 300px;
+          background-color: rgba(255, 255, 255, 0.8);
+          margin: 10px;
+      }
+
+      dialog.widget .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+      }
+
+      dialog.widget .form-group label {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          font-weight: normal;
+      }
+
+      dialog.widget .form-group input {
+          padding: 5px;
+          border: 1px solid #ccc;
+          border-radius: 3px;
+          background-color: rgba(255, 255, 255, 0.5);
+      }
+
+      dialog.widget .button-group {
+          display: flex;
+          gap: 10px;
+          margin-top: 10px;
+          justify-content: flex-end;
+      }
+
+      dialog.widget .button-group button,
+      dialog.widget .button-group input[type='submit'] {
+          padding: 5px 15px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          color: white;
+      }
+
+      dialog.widget .button-group .btn-primary {
+          background-color: #007bff;
+      }
+
+      dialog.widget .button-group .btn-secondary {
+          background-color: #6c757d;
+      }
+  
+  .llm-content {
+          background-color: rgba(255, 255, 255, 0.5);
+          border-radius: 4px;
+          padding: 8px;
+          margin: 10px 0;
+      }
+
+      /* Стили для виджетов */
+      .info-widgets {
+      position: absolute;
+      top: 50%; /* Центрирование по вертикали */
+      right: 0; /* Привязка к правому краю */
+      transform: translateY(-50%); /* Смещение вверх на половину высоты для точного центрирования */
+      height: auto; /* Высота по содержимому */
+      pointer-events: none;
+  }
+  .widget {
+      position: relative; /* Изменяем на relative для позиционирования внутри flex/grid контейнера */
+      background-color: rgba(255, 255, 255, 0.8);
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 10px;
+      width: 200px;
+      margin-bottom: 10px; /* Добавляем отступ между виджетами */
+      pointer-events: auto;
+  }
+
+  .info-widgets > div {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end; /* Выравнивание виджетов по правому краю внутри контейнера */
+      padding-right: 20px; /* Отступ от правого края экрана */
+  }
+  .widget h4 {
+      margin-top: 0;
+      margin-bottom: 10px;
+  }
+  .widget p {
+      margin: 5px 0;
+  }
+  .widget-top-left { top: 20px; left: 20px; }
+  .widget-top-right { top: 20px; right: 20px; }
+  .widget-bottom-left { bottom: 20px; left: 20px; }
+  .widget-bottom-right { bottom: 20px; right: 20px; }
+  dialog::backdrop {
+      background: rgba(0, 0, 0, 0.5);
+  }
+  label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: bold;
+  }
+  .input-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+  }
+  .input-group label {
+      flex: 1; /* Лейбл занимает доступное пространство */
+      margin-right: 10px; /* Отступ между лейблом и инпутом */
+  }
+  .input-group input {
+      width: 150px; /* Фиксированная ширина инпутов */
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: right; /* Выравнивание текста в инпуте по правому краю */
+  }
+  button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+  }
+  button:hover {
+      background-color: #0056b3;
+  }
+  body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+  }
+  
+  #app-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+  }
+  
+  #viewer-container {
+      width: 100%;
+      height: 100%;
+  }
+  
+  #custom-buttons {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000; /* Важно: кнопки должны быть выше вьювера */
+  }
+  
+  .custom-btn {
+      /* background: #4CAF50; */
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+  }
+
+  .progress-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000; /* Должен быть выше всех элементов */
+      pointer-events: auto; /* Разрешаем события мыши */
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.3s ease, visibility 0.3s;
+  }
+
+  .progress-overlay.show {
+      visibility: visible;
+      opacity: 1;
+  }
+
+  .progress-container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
+      /* pointer-events должны быть auto по умолчанию */
+  }
+
+  .progress-bar {
+      height: 20px;
+      background-color: #e0e0e0;
+      border-radius: 10px;
+      margin: 10px 0;
+      overflow: hidden;
+  }
+
+  .progress {
+      height: 100%;
+      background-color: #4CAF50;
+      width: 0%;
+      transition: width 0.3s ease;
+  }
+
+  #cancelProgress {
+      position: relative;
+      z-index: 99999; /* Максимальный приоритет */
+      box-shadow: 0 0 0 3px red; /* Красная обводка для видимости */
+  }
+
+  .btn-cancel {
+      background-color: #ff4444;
+      pointer-events: auto; /* ← Явно разрешаем клики */
+      cursor: pointer; /* ← Обязательно для кнопок */
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      margin-top: 10px;
+      border-radius: 4px;
+      z-index: 1000;
+  }
+</style>

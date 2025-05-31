@@ -121505,9 +121505,10 @@ async function createVocabulary(fileName) {
 }
 
 /**
- * Добавить запись в словарь
+ * Добавить элемент в словарь
  * @param {string} fileName - имя файла модели
  * @param {string} globalid - идентификатор элемента
+ * @param {number} expressID - express ID элемента
  * @returns {Promise<Object>} - результат добавления
  */
 async function addVocabulary(fileName, globalid, expressID) {
@@ -121527,6 +121528,62 @@ async function addVocabulary(fileName, globalid, expressID) {
     return await response.json();
   } catch (error) {
     console.error('Error adding to vocabulary:', error);
+    throw error;
+  }
+}
+
+/**
+ * Пакетное добавление элементов в словарь
+ * @param {string} fileName - имя файла модели
+ * @param {Array} elements - массив элементов {globalid, expressID}
+ * @param {number} batchSize - размер пакета (по умолчанию 1000)
+ * @returns {Promise<Object>} - результат добавления
+ */
+async function addVocabularyBatch(fileName, elements, batchSize = 1000) {
+  try {
+    const results = [];
+    
+    // Разбиваем элементы на пакеты
+    for (let i = 0; i < elements.length; i += batchSize) {
+      const batch = elements.slice(i, i + batchSize);
+      
+      console.log(`Отправка пакета ${Math.floor(i / batchSize) + 1}/${Math.ceil(elements.length / batchSize)} (${batch.length} элементов)`);
+      
+      const response = await fetch(`${API_BASE_URL}/add-vocabulary-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: fileName,
+          elements: batch.map(el => ({
+            globalid: encodeURIComponent(el.globalid),
+            expressID: el.expressID
+          }))
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      results.push(result);
+      
+      // Небольшая задержка между пакетами для снижения нагрузки на сервер
+      if (i + batchSize < elements.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    return {
+      success: true,
+      totalElements: elements.length,
+      batchesProcessed: results.length,
+      results: results
+    };
+  } catch (error) {
+    console.error('Error adding batch to vocabulary:', error);
     throw error;
   }
 }
@@ -121696,6 +121753,7 @@ var api = {
   getModelInfo,
   createVocabulary,
   addVocabulary,
+  addVocabularyBatch,
   updateVocabulary,
   getVocabulary,
   getFromAi,
@@ -121722,11 +121780,11 @@ class GUIManager {
     this.dialog = document.getElementById('dialog');
     this.propertiesButton = document.getElementById('properties-button');
     // Input элементы
-    this.input_DivisionNumber = document.getElementById("input_RUS_DivisionNumber");
-    this.input_StartDatePlan = document.getElementById("input_RUS_StartDatePlan");
-    this.input_StartDateIs = document.getElementById("input_RUS_StartDateIs");
-    this.input_EndDatePlan = document.getElementById("input_RUS_EndDatePlan");
-    this.input_EndDateIs = document.getElementById("input_RUS_EndDateIs");
+    this.input_ServiceSchedule = document.getElementById("input_RUS_ServiceSchedule");
+    this.input_RepairDate = document.getElementById("input_RUS_RepairDate");
+    this.input_OverhaulDate = document.getElementById("input_RUS_OverhaulDate");
+    this.input_SpareParts = document.getElementById("input_RUS_SpareParts");
+    this.input_EquipmentCode = document.getElementById("input_RUS_EquipmentCode");
     this.ksiInfoInput = document.getElementById("ksi_info");
     this.globalid = null;
   }
@@ -121736,8 +121794,8 @@ class GUIManager {
     this.inputForm.reset();
     this.ksiInfoInput.style.backgroundColor = '#eeeeee';
     // Reset input disabled states
-    [this.input_DivisionNumber, this.input_StartDatePlan, 
-     this.input_StartDateIs, this.input_EndDatePlan, this.input_EndDateIs]
+    [this.input_ServiceSchedule, this.input_RepairDate, 
+     this.input_OverhaulDate, this.input_SpareParts, this.input_EquipmentCode]
       .forEach(input => input.disabled = false);
 
     const propsGUI = document.getElementById("ifc-property-menu-root");
@@ -121933,6 +121991,48 @@ class GUIManager {
     children.forEach((child) => {
       this.constructVocabulary(child);
     });
+  }
+
+  async collectVocabularyElements(node, elements = []) {
+    const children = node.children;
+    const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
+    
+    // Добавляем текущий элемент в массив
+    elements.push({
+      globalid: props.GlobalId.value,
+      expressID: node.expressID
+    });
+    
+    // Рекурсивно обрабатываем дочерние элементы
+    if (children.length > 0) {
+      for (const child of children) {
+        await this.collectVocabularyElements(child, elements);
+      }
+    }
+    
+    return elements;
+  }
+
+  async constructVocabularyBatch(nodes) {
+    console.log('Начинаем пакетное создание словаря...');
+    const allElements = [];
+    
+    // Собираем все элементы из всех узлов
+    for (const node of nodes) {
+      await this.collectVocabularyElements(node, allElements);
+    }
+    
+    console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
+    
+    try {
+      // Отправляем все элементы пакетно
+      const result = await this.api.addVocabularyBatch(this.fileName, allElements);
+      console.log('Пакетное создание словаря завершено:', result);
+      return result;
+    } catch (error) {
+      console.error('Ошибка при пакетном создании словаря:', error);
+      throw error;
+    }
   }
 
   createNestedChild(parent, node) {
@@ -122539,9 +122639,17 @@ async function loadIfc(url) {
   }
   _numberOfElements = countElements(structure);
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
-  structure.children.forEach((child) => {
-    guiManager.constructVocabulary(child);
-  });
+  
+  // Используем пакетную отправку вместо индивидуальных запросов
+  try {
+    await guiManager.constructVocabularyBatch(structure.children);
+  } catch (error) {
+    console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
+    // Fallback к старому методу в случае ошибки
+    structure.children.forEach((child) => {
+      guiManager.constructVocabulary(child);
+    });
+  }
 
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
@@ -122669,11 +122777,11 @@ dialog.addEventListener('submit', async (event) => {
     // console.log("addEventListener", event)
     event.preventDefault(); // Отменяем стандартное поведение формы
     const fields = {
-      "RUS_DivisionNumber": document.getElementById("input_RUS_DivisionNumber").value,
-      "RUS_StartDatePlan": document.getElementById("input_RUS_StartDatePlan").value,
-      "RUS_StartDateIs": document.getElementById("input_RUS_StartDateIs").value,
-      "RUS_EndDatePlan": document.getElementById("input_RUS_EndDatePlan").value,
-      "RUS_EndDateIs": document.getElementById("input_RUS_EndDateIs").value
+      "RUS_ServiceSchedule": document.getElementById("input_RUS_ServiceSchedule").value,
+      "RUS_RepairDate": document.getElementById("input_RUS_RepairDate").value,
+      "RUS_OverhaulDate": document.getElementById("input_RUS_OverhaulDate").value,
+      "RUS_SpareParts": document.getElementById("input_RUS_SpareParts").value,
+      "RUS_EquipmentCode": document.getElementById("input_RUS_EquipmentCode").value
     };
     // console.log("addEventListener fields", fields)
     dialog.close();
@@ -122914,39 +123022,6 @@ setInterval(async () => {
   }
 }, 20000); // Каждые 10 секунд
 
-const btnLLM = document.getElementById("btnLLM");
-const llmDialog = document.getElementById("llmDialog");
-
-const llmOutput = document.getElementById("llmOutput");
-const btnCloseLLM = document.getElementById("btnCloseLLM");
-llmOutput.value = 'Ожидание ответа от LLM...';
-btnLLM.onclick = () => {
-    llmDialog.showModal();
-    llmOutput.value = 'Ожидание ответа от LLM...';
-    let checkInterval = setInterval(async () => {
-      try {
-        const llmResponse = await api.getLLMResponse(_fileName); // Предполагаем, что API теперь не требует prompt
-        if (response && response.answer) {
-          llmOutput.value = response.answer;
-          clearInterval(checkInterval); // Останавливаем проверку после получения ответа
-        }
-      } catch (error) {
-        console.error('Error calling LLM API:', error);
-        llmOutput.value = 'Ошибка при получении ответа от LLM.';
-        clearInterval(checkInterval); // Останавливаем проверку в случае ошибки
-      }
-    }, 3000); // Проверяем каждые 3 секунды
-    btnLLM.classList.add('button-active');
-  };
-
-btnCloseLLM.onclick = async () => {
-    llmDialog.style.display = 'none';
-    btnLLM.classList.remove('button-active');
-    await api.stopLLMCheck();
-  };
-
-
-
 // Функции для генерации случайных данных
 function getRandomValue(min, max) {
   return (Math.random() * (max - min) + min).toFixed(1);
@@ -122963,15 +123038,16 @@ function updateElement(id, value) {
 }
 
 function updateAirSupplyData() {
-  const temp = getRandomValue(20, 25);
-  const humidity = getRandomValue(40, 60);
-  const airFlow = getRandomValue(1000, 2000);
-  const exhaustTemp = getRandomValue(22, 27);
+  // Реалистичные параметры воздухоснабжения
+  const airFlow = getRandomValue(800, 1100); // м³/ч - типичный расход для офисного помещения
+  const supplyTemp = getRandomValue(18, 22); // °C - температура приточного воздуха
+  const exhaustTemp = getRandomValue(24, 28); // °C - температура вытяжки (выше комнатной)
+  const pressure = getRandomValue(50, 150); // Па - давление в вентиляционной системе
 
-  updateElement('air-temp', temp);
-  updateElement('air-humidity', humidity);
   updateElement('air-flow', airFlow);
+  updateElement('air-supply-temp', supplyTemp);
   updateElement('air-exhaust-temp', exhaustTemp);
+  updateElement('air-pressure', pressure);
 }
 
 function updatePowerSupplyData() {
@@ -122985,22 +123061,38 @@ function updatePowerSupplyData() {
 }
 
 function updateCoolingSupplyData() {
-  const waterTempIn = getRandomValue(5, 10);
-  const waterTempOut = getRandomValue(10, 15);
-  const coolingCapacity = getRandomValue(50, 150);
+  // Реалистичные параметры кондиционирования
+  const roomTemp = getRandomValue(21, 24); // °C - комфортная температура в помещении
+  const roomHumidity = getRandomValue(45, 55); // % - оптимальная влажность для комфорта
+  const coolingAirFlow = getRandomValue(300, 400); // м³/ч - расход охлажденного воздуха
+  const coolingCapacity = getRandomValue(8, 12); // кВт - холодопроизводительность
 
-  updateElement('cooling-water-temp-in', waterTempIn);
-  updateElement('cooling-water-temp-out', waterTempOut);
+  updateElement('room-temp', roomTemp);
+  updateElement('room-humidity', roomHumidity);
+  updateElement('cooling-air-flow', coolingAirFlow);
   updateElement('cooling-capacity', coolingCapacity);
 }
 
+async function updateLlmData(){
+  try {
+    const response = await api.getLLMResponse(_fileName); // Предполагаем, что API теперь не требует prompt
+    if (response && response.answer) {
+      llmOutput.value = response.answer;
+      clearInterval(checkInterval); // Останавливаем проверку после получения ответа
+    }
+  } catch (error) {
+    console.error('Error calling LLM API:', error);
+    llmOutput.value = '...';
+    clearInterval(checkInterval); // Останавливаем проверку в случае ошибки
+  }
+}
 // Функция для запуска обновлений только после загрузки DOM
 function startDataUpdates() {
   // Проверяем, что все необходимые элементы существуют
   const requiredIds = [
-    'air-temp', 'air-humidity', 'air-flow', 'air-exhaust-temp',
+    'air-flow', 'air-supply-temp', 'air-exhaust-temp', 'air-pressure',
     'power-voltage', 'power-current', 'power-load',
-    'cooling-water-temp-in', 'cooling-water-temp-out', 'cooling-capacity'
+    'room-temp', 'room-humidity', 'cooling-air-flow', 'cooling-capacity'
   ];
   
   const missingElements = requiredIds.filter(id => !document.getElementById(id));
@@ -123014,12 +123106,16 @@ function startDataUpdates() {
   updateAirSupplyData();
   updatePowerSupplyData();
   updateCoolingSupplyData();
+  updateLlmData();
   
   // Обновление данных каждые 3 секунды
-  setInterval(updateAirSupplyData, 3000);
-  setInterval(updatePowerSupplyData, 3000);
-  setInterval(updateCoolingSupplyData, 3000);
+  setInterval(updateAirSupplyData, 2550);
+  setInterval(updatePowerSupplyData, 4400);
+  setInterval(updateCoolingSupplyData, 1500);
+  setInterval(updateLlmData, 5100);
 }
+
+
 
 // Запускаем только после полной загрузки DOM
 if (document.readyState === 'loading') {
