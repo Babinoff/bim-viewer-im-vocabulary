@@ -15,11 +15,11 @@ export class GUIManager {
     this.dialog = document.getElementById('dialog');
     this.propertiesButton = document.getElementById('properties-button');
     // Input элементы
-    this.input_DivisionNumber = document.getElementById("input_RUS_DivisionNumber");
-    this.input_StartDatePlan = document.getElementById("input_RUS_StartDatePlan");
-    this.input_StartDateIs = document.getElementById("input_RUS_StartDateIs");
-    this.input_EndDatePlan = document.getElementById("input_RUS_EndDatePlan");
-    this.input_EndDateIs = document.getElementById("input_RUS_EndDateIs");
+    this.input_ServiceSchedule = document.getElementById("input_RUS_ServiceSchedule");
+    this.input_RepairDate = document.getElementById("input_RUS_RepairDate");
+    this.input_OverhaulDate = document.getElementById("input_RUS_OverhaulDate");
+    this.input_SpareParts = document.getElementById("input_RUS_SpareParts");
+    this.input_EquipmentCode = document.getElementById("input_RUS_EquipmentCode");
     this.ksiInfoInput = document.getElementById("ksi_info");
     this.globalid = null;
   }
@@ -29,8 +29,8 @@ export class GUIManager {
     this.inputForm.reset();
     this.ksiInfoInput.style.backgroundColor = '#eeeeee';
     // Reset input disabled states
-    [this.input_DivisionNumber, this.input_StartDatePlan, 
-     this.input_StartDateIs, this.input_EndDatePlan, this.input_EndDateIs]
+    [this.input_ServiceSchedule, this.input_RepairDate, 
+     this.input_OverhaulDate, this.input_SpareParts, this.input_EquipmentCode]
       .forEach(input => input.disabled = false);
 
     const propsGUI = document.getElementById("ifc-property-menu-root");
@@ -226,6 +226,48 @@ export class GUIManager {
     children.forEach((child) => {
       this.constructVocabulary(child);
     });
+  }
+
+  async collectVocabularyElements(node, elements = []) {
+    const children = node.children;
+    const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
+    
+    // Добавляем текущий элемент в массив
+    elements.push({
+      globalid: props.GlobalId.value,
+      expressID: node.expressID
+    });
+    
+    // Рекурсивно обрабатываем дочерние элементы
+    if (children.length > 0) {
+      for (const child of children) {
+        await this.collectVocabularyElements(child, elements);
+      }
+    }
+    
+    return elements;
+  }
+
+  async constructVocabularyBatch(nodes) {
+    console.log('Начинаем пакетное создание словаря...');
+    const allElements = [];
+    
+    // Собираем все элементы из всех узлов
+    for (const node of nodes) {
+      await this.collectVocabularyElements(node, allElements);
+    }
+    
+    console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
+    
+    try {
+      // Отправляем все элементы пакетно
+      const result = await this.api.addVocabularyBatch(this.fileName, allElements);
+      console.log('Пакетное создание словаря завершено:', result);
+      return result;
+    } catch (error) {
+      console.error('Ошибка при пакетном создании словаря:', error);
+      throw error;
+    }
   }
 
   createNestedChild(parent, node) {

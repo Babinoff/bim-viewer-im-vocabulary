@@ -52,9 +52,10 @@ async function createVocabulary(fileName) {
 }
 
 /**
- * Добавить запись в словарь
+ * Добавить элемент в словарь
  * @param {string} fileName - имя файла модели
  * @param {string} globalid - идентификатор элемента
+ * @param {number} expressID - express ID элемента
  * @returns {Promise<Object>} - результат добавления
  */
 async function addVocabulary(fileName, globalid, expressID) {
@@ -74,6 +75,62 @@ async function addVocabulary(fileName, globalid, expressID) {
     return await response.json();
   } catch (error) {
     console.error('Error adding to vocabulary:', error);
+    throw error;
+  }
+}
+
+/**
+ * Пакетное добавление элементов в словарь
+ * @param {string} fileName - имя файла модели
+ * @param {Array} elements - массив элементов {globalid, expressID}
+ * @param {number} batchSize - размер пакета (по умолчанию 1000)
+ * @returns {Promise<Object>} - результат добавления
+ */
+async function addVocabularyBatch(fileName, elements, batchSize = 1000) {
+  try {
+    const results = [];
+    
+    // Разбиваем элементы на пакеты
+    for (let i = 0; i < elements.length; i += batchSize) {
+      const batch = elements.slice(i, i + batchSize);
+      
+      console.log(`Отправка пакета ${Math.floor(i / batchSize) + 1}/${Math.ceil(elements.length / batchSize)} (${batch.length} элементов)`);
+      
+      const response = await fetch(`${API_BASE_URL}/add-vocabulary-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: fileName,
+          elements: batch.map(el => ({
+            globalid: encodeURIComponent(el.globalid),
+            expressID: el.expressID
+          }))
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      results.push(result);
+      
+      // Небольшая задержка между пакетами для снижения нагрузки на сервер
+      if (i + batchSize < elements.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    return {
+      success: true,
+      totalElements: elements.length,
+      batchesProcessed: results.length,
+      results: results
+    };
+  } catch (error) {
+    console.error('Error adding batch to vocabulary:', error);
     throw error;
   }
 }
@@ -243,6 +300,7 @@ export default {
   getModelInfo,
   createVocabulary,
   addVocabulary,
+  addVocabularyBatch,
   updateVocabulary,
   getVocabulary,
   getFromAi,

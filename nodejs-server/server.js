@@ -111,6 +111,56 @@ app.post('/add-vocabulary', async (req, res) => {
   }
 });
 
+app.post('/add-vocabulary-batch', async (req, res) => {
+  try {
+    // Валидация данных
+    if (!req.body || !req.body.fileName || !req.body.elements || !Array.isArray(req.body.elements)) {
+      const errorMessage = 'Invalid data format. Required fields: fileName, elements (array)'
+      console.error("/add-vocabulary-batch", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage 
+      });
+    }
+    
+    console.log(`Пакетное добавление: ${req.body.elements.length} элементов для модели ${req.body.fileName}`);
+    
+    const results = [];
+    const errors = [];
+    
+    // Обрабатываем каждый элемент в пакете
+    for (const element of req.body.elements) {
+      if (!element.globalid || element.expressID === undefined) {
+        errors.push(`Пропущен элемент: отсутствует globalid или expressID`);
+        continue;
+      }
+      
+      try {
+        await addElement(
+          req.body.fileName,
+          decodeURIComponent(element.globalid),
+          element.expressID
+        );
+        results.push({ globalid: element.globalid, status: 'success' });
+      } catch (error) {
+        console.error(`Ошибка при добавлении элемента ${element.globalid}:`, error);
+        errors.push(`Ошибка для ${element.globalid}: ${error}`);
+        results.push({ globalid: element.globalid, status: 'error', error: error.toString() });
+      }
+    }
+    
+    res.status(200).json({ 
+      success: true,
+      processed: results.length,
+      errors: errors.length,
+      results: results,
+      errorDetails: errors
+    });
+  } catch (error) {
+    console.error('Error in batch processing:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.post('/update-vocabulary', async (req, res) => {
   try {
     // Новая валидация данных

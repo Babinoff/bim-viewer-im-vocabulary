@@ -141,7 +141,14 @@ async function initializeDatabase() {
                 RUS_StartDateIs TEXT,
                 RUS_EndDatePlan TEXT,
                 RUS_EndDateIs TEXT,
-                RUS_ElementCode TEXT
+                RUS_ElementCode TEXT,
+                RUS_OperationTemperatureRange TEXT,
+                RUS_PersonResponsibleForOperation TEXT,
+                RUS_ServiceSchedule TEXT,
+                RUS_RepairDate TEXT,
+                RUS_OverhaulDate TEXT,
+                RUS_SpareParts TEXT,
+                RUS_EquipmentCode TEXT
             )`,
             (err) => {
                 if (err) {
@@ -223,9 +230,15 @@ async function updateElement(filename, globalid, fieldsToUpdate) {
   }
 
   return new Promise((resolve, reject) => {
-      // Проверяем, существует ли строка с таким globalid
+      // Проверяем, существует ли строка с таким именем
       // ensureColumnExists("expressID", "INT")
-
+    //   ensureColumnExists('RUS_OperationTemperatureRange');
+    //   ensureColumnExists('RUS_PersonResponsibleForOperation');
+    //   ensureColumnExists('RUS_ServiceSchedule');
+    //   ensureColumnExists('RUS_RepairDate');
+    //   ensureColumnExists('RUS_OverhaulDate');
+    //   ensureColumnExists('RUS_SpareParts');
+    //   ensureColumnExists('RUS_EquipmentCode');
       _db.get(
           `SELECT globalid FROM elements WHERE globalid = ?`,
           [globalid],
