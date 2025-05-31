@@ -5,5 +5,5 @@ tangl-demo-playground1/node_modules
 tangl-dev
 Renga коттедж для сериала.rnp
 .env
-nodejs-server/models/exploitation_test.sqlite-shm
-nodejs-server/models/exploitation_test.sqlite-wal
+nodejs-server/models/
+
