@@ -28,6 +28,9 @@ import {
   IFCSITE,
   IFCROOF,
   IFCBUILDINGELEMENTPROXY,
+  IFCAIRTERMINAL,
+  IFCDUCTFITTING,
+  IFCDUCTSEGMENT
 } from "web-ifc";
 import apiService from "./api-service";
 
@@ -45,6 +48,9 @@ const categories = {
   IFCSITE,
   IFCROOF,
   IFCBUILDINGELEMENTPROXY,
+  IFCAIRTERMINAL,
+  IFCDUCTFITTING,
+  IFCDUCTSEGMENT
 };
 
 const container = document.getElementById("viewer-container");
@@ -62,14 +68,30 @@ const currentProjectID = url.searchParams.get("id"); //bimserver project id - us
 
 const scene = _viewer.context.getScene(); //for showing/hiding categories
 
+_viewer.context.renderer.postProduction.active = false;
+_viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
+  [IFCSPACE]: false  
+}); 
+
+_viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
+  [IFCAIRTERMINAL]: true  // Явно включить  
+});
+
+_viewer.IFC.loader.ifcManager.applyWebIfcConfig({  
+  USE_FAST_BOOLS: false,  // Отключить быстрые булевы операции  
+  COORDINATE_TO_ORIGIN: true  
+});
+
 let _path;
 let _fileName;
 let _model;
+let _modelID;
 let _globalid;
 let _expressID;
 let _elemKsiCode;
 let _numberOfElements;
 let _allHighlightKsiIds = [];
+let _allHighlightWarningIds = [];
 let _elemCounter = 0;
 let _isCancelled = false;
 let _modelInfo = {
@@ -84,10 +106,20 @@ const _customSelectMaterial = new MeshLambertMaterial({
   // depthTest: false,  
   side: 2 // DoubleSide  
 });
+
+const _warningMaterial = new MeshLambertMaterial({  
+  color: 0xcc0000,  // Red color  
+  opacity: 0.5,  
+  transparent: true,  
+  // depthTest: false,  
+  side: 2, // DoubleSide  
+  depthTest: true
+});
+
 const _customKsiMaterial =  new MeshLambertMaterial({
   color: 0x00ff00,  // Зелёный цвет
   transparent: true,  // Отключаем прозрачность (по умолчанию false)
-  opacity: 1,         // Полная непрозрачность (по умолчанию 1)
+  opacity: 0.2,         // Полная непрозрачность (по умолчанию 1)
   depthTest: false
 });
 
@@ -120,6 +152,8 @@ const guiManager = new GUIManager(
 async function loadIfc(url) {
   // Load the model
   _model = await _viewer.IFC.loadIfcUrl(url);
+  _modelID = _model.modelID
+
   guiManager.modelID = _model.modelID;
   // Add dropped shadow and post-processing efect
   await _viewer.shadowDropper.renderShadow(_model.modelID);
@@ -133,7 +167,7 @@ async function loadIfc(url) {
   let highlightIds = []
   function countElements(item) {
     highlightIds.push(item.expressID)
-    _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds);
+    _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds); //помогает показать невидимые элементы
     let count = item.children.length;
     for (const child of item.children) {
         count += countElements(child);
@@ -142,17 +176,10 @@ async function loadIfc(url) {
   }
   _numberOfElements = countElements(structure);
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
-  // const btnGetData = document.getElementById("getData");
-  // console.log("btnGetData.onclick", btnGetData)
   structure.children.forEach((child) => {
     guiManager.constructVocabulary(child);
   });
-  // if (_numberOfElements != modelInfo.rowCount){
-  //     //создавать элементы словаря
-  //   structure.children.forEach((child) => {
-  //     guiManager.constructVocabulary(child);
-  //   });
-  // }
+
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
 
@@ -496,4 +523,144 @@ btnOffKsi.onclick = async function() {
   } catch (error) {
     console.error('Error:', error);
   }
+}
+
+setInterval(async () => {
+  try {
+    const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
+    _allHighlightWarningIds = [];
+    createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+    let testIds = [];
+    if (vocabularyData && vocabularyData.length > 0) {
+      console.log('getAllVocabularyFilled');
+      for (const item of vocabularyData) {
+        if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+          // Применяем _warningMaterial к элементу
+          testIds.push(item.expressID);
+          console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
+          _allHighlightWarningIds.push(item.expressID);
+          await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
+          // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+      createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+    }
+  } catch (error) {
+    console.error('Error fetching vocabulary data:', error);
+  }
+}, 20000); // Каждые 10 секунд
+
+const btnLLM = document.getElementById("btnLLM");
+const llmDialog = document.getElementById("llmDialog");
+
+const llmOutput = document.getElementById("llmOutput");
+const btnCloseLLM = document.getElementById("btnCloseLLM");
+llmOutput.value = 'Ожидание ответа от LLM...';
+btnLLM.onclick = () => {
+    llmDialog.showModal();
+    llmOutput.value = 'Ожидание ответа от LLM...';
+    let checkInterval = setInterval(async () => {
+      try {
+        const llmResponse = await api.getLLMResponse(_fileName); // Предполагаем, что API теперь не требует prompt
+        if (response && response.answer) {
+          llmOutput.value = response.answer;
+          clearInterval(checkInterval); // Останавливаем проверку после получения ответа
+        }
+      } catch (error) {
+        console.error('Error calling LLM API:', error);
+        llmOutput.value = 'Ошибка при получении ответа от LLM.';
+        clearInterval(checkInterval); // Останавливаем проверку в случае ошибки
+      }
+    }, 3000); // Проверяем каждые 3 секунды
+    btnLLM.classList.add('button-active');
+  };
+
+btnCloseLLM.onclick = async () => {
+    llmDialog.style.display = 'none';
+    btnLLM.classList.remove('button-active');
+    await api.stopLLMCheck();
+  };
+
+
+
+// Функции для генерации случайных данных
+function getRandomValue(min, max) {
+  return (Math.random() * (max - min) + min).toFixed(1);
+}
+
+// Безопасная функция для обновления элемента
+function updateElement(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  } else {
+    console.warn(`Элемент с ID '${id}' не найден`);
+  }
+}
+
+function updateAirSupplyData() {
+  const temp = getRandomValue(20, 25);
+  const humidity = getRandomValue(40, 60);
+  const airFlow = getRandomValue(1000, 2000);
+  const exhaustTemp = getRandomValue(22, 27);
+
+  updateElement('air-temp', temp);
+  updateElement('air-humidity', humidity);
+  updateElement('air-flow', airFlow);
+  updateElement('air-exhaust-temp', exhaustTemp);
+}
+
+function updatePowerSupplyData() {
+  const voltage = getRandomValue(210, 230);
+  const current = getRandomValue(50, 100);
+  const powerLoad = getRandomValue(10, 50);
+
+  updateElement('power-voltage', voltage);
+  updateElement('power-current', current);
+  updateElement('power-load', powerLoad);
+}
+
+function updateCoolingSupplyData() {
+  const waterTempIn = getRandomValue(5, 10);
+  const waterTempOut = getRandomValue(10, 15);
+  const coolingCapacity = getRandomValue(50, 150);
+
+  updateElement('cooling-water-temp-in', waterTempIn);
+  updateElement('cooling-water-temp-out', waterTempOut);
+  updateElement('cooling-capacity', coolingCapacity);
+}
+
+// Функция для запуска обновлений только после загрузки DOM
+function startDataUpdates() {
+  // Проверяем, что все необходимые элементы существуют
+  const requiredIds = [
+    'air-temp', 'air-humidity', 'air-flow', 'air-exhaust-temp',
+    'power-voltage', 'power-current', 'power-load',
+    'cooling-water-temp-in', 'cooling-water-temp-out', 'cooling-capacity'
+  ];
+  
+  const missingElements = requiredIds.filter(id => !document.getElementById(id));
+  
+  if (missingElements.length > 0) {
+    console.error('Не найдены элементы с ID:', missingElements);
+    return;
+  }
+  
+  // Запускаем первое обновление сразу
+  updateAirSupplyData();
+  updatePowerSupplyData();
+  updateCoolingSupplyData();
+  
+  // Обновление данных каждые 3 секунды
+  setInterval(updateAirSupplyData, 3000);
+  setInterval(updatePowerSupplyData, 3000);
+  setInterval(updateCoolingSupplyData, 3000);
+}
+
+// Запускаем только после полной загрузки DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startDataUpdates);
+} else {
+  startDataUpdates();
 }

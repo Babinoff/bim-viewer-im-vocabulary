@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "mcp_server": "node db-mcp-server.js",
     "test": "node server.js",
     "dev": "supervisor server.js"
   },
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@mistralai/mistralai": "^1.6.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "axios": "^1.8.3",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

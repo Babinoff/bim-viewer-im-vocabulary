@@ -9,8 +9,12 @@ const {
   addElement, 
   getElementByGlobalId, 
   updateElement,
-  getAllKsiExpressID
+  getAllKsiExpressID,
+  getAllVocabularyFilled
   } = require('./db');
+const { 
+  chatWithModel
+  } = require('./llm-services');
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
 
@@ -94,11 +98,11 @@ app.post('/add-vocabulary', async (req, res) => {
       });
     }
     // Добавляем элементы
-    console.log(await addElement(
+    await addElement(
       req.body.fileName,
       decodeURIComponent(req.body.globalid),
       req.body.expressID
-    )); // Успешно добавится
+    ); // Успешно добавится
     
     res.status(200).json({ success: true });
   } catch (error) {
@@ -119,7 +123,7 @@ app.post('/update-vocabulary', async (req, res) => {
       });
     }
     // Добавляем элементы
-    console.log(await updateElement(
+    await updateElement(
       req.body.fileName,
       decodeURIComponent(req.body.globalid), 
       req.body.fields
@@ -130,7 +134,7 @@ app.post('/update-vocabulary', async (req, res) => {
       //   "RUS_EndDatePlan":req.body.EndDatePlanVocabulary,
       //   "RUS_EndDateIs":req.body.EndDateIsVocabulary,
       // }
-    )); // Успешно добавится
+    ); // Успешно добавится
     
     res.status(200).json({ success: true });
   } catch (error) {
@@ -156,6 +160,27 @@ app.get('/get-vocabulary', async (req, res) => {
     
     res.json(vocabulary);
     // res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/get-all-vocabulary-filled', async (req, res) => {
+  try {
+    console.log("/get-all-vocabulary-filled req.query", req.query);
+    if (!req.query || !req.query.fileName) {
+      const errorMessage = 'Invalid data format. Required fields: fileName';
+      console.error("/get-all-vocabulary-filled", errorMessage);
+      return res.status(400).json({
+        error: errorMessage
+      });
+    }
+
+    let allFilledVocabulary = await getAllVocabularyFilled(req.query.fileName);
+    console.log("[0] filled vocabulary:", allFilledVocabulary[0]);
+
+    res.json(allFilledVocabulary);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -227,7 +252,7 @@ app.get('/get-ksi-from-ai', async (req, res) => {
       ],
     });
     const ksiKlass = chatResponse.choices[0].message.content
-    // console.log("ksiKlass:", ksiKlass);
+    console.log("ksiKlass:", ksiKlass);
     res.status(200).json(ksiKlass);
   } catch (error) {
     console.error('Error:', error);
@@ -285,12 +310,82 @@ app.get('/get-all-ksi-express-id', async (req, res) => {
   }
 });
 
+app.get('/get-llm-response', async (req, res) => {
+  try {
+    // Новая валидация данных
+    console.log("/get-llm-response", req.query)
+    if (!req.query || !req.query.fileName || !req.query.prompt) {
+      const errorMessage = 'Invalid data format. Required fields: fileName prompt' 
+      console.error("/get-llm-response", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage
+      });
+    }
+
+    let llmresponse = await chatWithModel(req.query.prompt)
+    console.log(req.query, llmresponse);
+
+    res.status(200).json({ success: true, llmresponse: llmresponse });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.use(cors({
   origin: '*',
   methods: ['POST', 'GET']
 }));
 
+let llmCheckInterval;
+
+app.get('/start-llm-check', async (req, res) => {
+  if (llmCheckInterval) {
+    return res.status(200).json({ message: 'LLM check already running.' });
+  }
+
+  const fileName = req.query.fileName; // Получаем fileName из запроса
+  if (!fileName) {
+    return res.status(400).json({ error: 'fileName is required.' });
+  }
+
+  llmCheckInterval = setInterval(async () => {
+    try {
+      const vocabularyData = await getAllVocabularyFilled(fileName);
+      const dangerousElements = [];
+
+      if (vocabularyData && vocabularyData.length > 0) {
+        for (const item of vocabularyData) {
+          if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+            dangerousElements.push(item.globalid);
+          }
+        }
+      }
+
+      if (dangerousElements.length > 0) {
+        const prompt = `Опасные элементы с globalid: ${dangerousElements.join(', ')}. Проанализируйте их.`;
+        const llmResponse = await chatWithModel(prompt);
+        console.log('LLM Response for dangerous elements:', llmResponse);
+      }
+    } catch (error) {
+      console.error('Error during LLM check:', error);
+    }
+  }, 30000); // Проверяем каждые 30 секунд
+
+  res.status(200).json({ message: 'LLM check started.' });
+});
+
+app.get('/stop-llm-check', (req, res) => {
+  if (llmCheckInterval) {
+    clearInterval(llmCheckInterval);
+    llmCheckInterval = null;
+    res.status(200).json({ message: 'LLM check stopped.' });
+  } else {
+    res.status(200).json({ message: 'LLM check not running.' });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
+

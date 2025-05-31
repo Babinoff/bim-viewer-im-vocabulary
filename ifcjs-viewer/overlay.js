@@ -91,6 +91,9 @@ export function createCheckboxes() {
     "Site",
     "Roofs",
     "Other",
+    "IFCAIRTERMINAL",
+    "IFCDUCTFITTING",
+    "IFCDUCTSEGMENT"
   ];
 
   const categoriesText = [
@@ -106,6 +109,9 @@ export function createCheckboxes() {
     "IFCSITE",
     "IFCROOF",
     "IFCBUILDINGELEMENTPROXY",
+    "IFCAIRTERMINAL",
+    "IFCDUCTFITTING",
+    "IFCDUCTSEGMENT"
   ];
 
   for (let i = 0; i < categoriesText.length; i++) {

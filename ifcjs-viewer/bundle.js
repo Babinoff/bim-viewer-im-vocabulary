@@ -121631,15 +121631,78 @@ async function getAllKsiExpressIds(fileName) {
   }
 }
 
+async function getAllVocabularyFilled(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching all filled vocabulary:', error);
+    throw error;
+  }
+}
+
+async function getLLMResponse(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting LLM response:', error);
+    throw error;
+  }
+}
+
 // Экспорт всех методов
-var apiService = {
+async function stopLLMCheck() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error stopping LLM check:', error);
+    throw error;
+  }
+}
+
+var api = {
   getModelInfo,
   createVocabulary,
   addVocabulary,
   updateVocabulary,
   getVocabulary,
   getFromAi,
-  getAllKsiExpressIds
+  getAllKsiExpressIds,
+  getAllVocabularyFilled,
+  getLLMResponse,
+  stopLLMCheck
 };
 
 // GUI Manager Library
@@ -121997,6 +122060,9 @@ function createCheckboxes() {
     "Site",
     "Roofs",
     "Other",
+    "IFCAIRTERMINAL",
+    "IFCDUCTFITTING",
+    "IFCDUCTSEGMENT"
   ];
 
   const categoriesText = [
@@ -122012,6 +122078,9 @@ function createCheckboxes() {
     "IFCSITE",
     "IFCROOF",
     "IFCBUILDINGELEMENTPROXY",
+    "IFCAIRTERMINAL",
+    "IFCDUCTFITTING",
+    "IFCDUCTSEGMENT"
   ];
 
   for (let i = 0; i < categoriesText.length; i++) {
@@ -122315,41 +122384,17 @@ const projects = [
     id: "3145729",
   },
   {
-    name: "TESTED_Simple_project_01",
-    id: "2883585",
-  },
-  {
-    name: "TESTED_Simple_project_02",
-    id: "2949121",
-  },
-  {
-    name: "rac_advanced_sample_project",
-    id: "3080193",
-  },
-  {
     name: "rac_basic_sample_project",
     id: "3014657",
-  },
-  {
-    name: "project1",
-    id: "1000008",
-  },
-  {
-    name: "проект_тест",
-    id: "1000009",
-  },
-  {
-    name: "Новый проект",
-    id: "1000010",
   },
   {
     name: "Renga коттедж для сериала",
     id: "1000011",
   },
-  // {
-  //   name: "van_gogh_house",
-  //   id: "1000012",
-  // },
+  {
+    name: "exploitation_test",
+    id: "1000012",
+  },
 ];
 
 // List of categories names
@@ -122366,6 +122411,9 @@ const categories = {
   IFCSITE,
   IFCROOF,
   IFCBUILDINGELEMENTPROXY,
+  IFCAIRTERMINAL,
+  IFCDUCTFITTING,
+  IFCDUCTSEGMENT
 };
 
 const container = document.getElementById("viewer-container");
@@ -122383,14 +122431,30 @@ const currentProjectID = url.searchParams.get("id"); //bimserver project id - us
 
 const scene = _viewer.context.getScene(); //for showing/hiding categories
 
+_viewer.context.renderer.postProduction.active = false;
+_viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
+  [IFCSPACE]: false  
+}); 
+
+_viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
+  [IFCAIRTERMINAL]: true  // Явно включить  
+});
+
+_viewer.IFC.loader.ifcManager.applyWebIfcConfig({  
+  USE_FAST_BOOLS: false,  // Отключить быстрые булевы операции  
+  COORDINATE_TO_ORIGIN: true  
+});
+
 let _path;
 let _fileName;
 let _model;
+let _modelID;
 let _globalid;
 let _expressID;
 let _elemKsiCode;
 let _numberOfElements;
 let _allHighlightKsiIds = [];
+let _allHighlightWarningIds = [];
 let _elemCounter = 0;
 let _isCancelled = false;
 let _modelInfo = {
@@ -122402,13 +122466,23 @@ new MeshLambertMaterial({
   color: 0xcc0000,  // Red color  
   opacity: 0.5,  
   transparent: true,  
-  depthTest: false,  
+  // depthTest: false,  
   side: 2 // DoubleSide  
 });
+
+const _warningMaterial = new MeshLambertMaterial({  
+  color: 0xcc0000,  // Red color  
+  opacity: 0.5,  
+  transparent: true,  
+  // depthTest: false,  
+  side: 2, // DoubleSide  
+  depthTest: true
+});
+
 const _customKsiMaterial =  new MeshLambertMaterial({
   color: 0x00ff00,  // Зелёный цвет
   transparent: true,  // Отключаем прозрачность (по умолчанию false)
-  opacity: 1,         // Полная непрозрачность (по умолчанию 1)
+  opacity: 0.2,         // Полная непрозрачность (по умолчанию 1)
   depthTest: false
 });
 
@@ -122417,10 +122491,10 @@ for (let proj of projects) {
     _fileName = proj.name;
     _path = "./models/" + _fileName + ".ifc"; // get path into this /get-model-info
     try {
-      _modelInfo = await apiService.getModelInfo(_fileName);
+      _modelInfo = await api.getModelInfo(_fileName);
       // console.log("modelInfo", _modelInfo)
       if (_modelInfo.exists == false){
-        const result = await apiService.createVocabulary(_fileName);
+        const result = await api.createVocabulary(_fileName);
         // console.log("createVocabulary result", result)
       }
     } catch (error) {
@@ -122433,7 +122507,7 @@ const guiManager = new GUIManager(
   _viewer, 
   _viewer.IFC.loader.ifcManager,
   scene, 
-  apiService, 
+  api, 
   _fileName,
   categories
 );
@@ -122441,6 +122515,8 @@ const guiManager = new GUIManager(
 async function loadIfc(url) {
   // Load the model
   _model = await _viewer.IFC.loadIfcUrl(url);
+  _modelID = _model.modelID;
+
   guiManager.modelID = _model.modelID;
   // Add dropped shadow and post-processing efect
   await _viewer.shadowDropper.renderShadow(_model.modelID);
@@ -122448,13 +122524,13 @@ async function loadIfc(url) {
   _model.removeFromParent(); //for ifc categories filter
   const ifcProject = await _viewer.IFC.getSpatialStructure(_model.modelID);
   await guiManager.setupAllCategories(); //for ifc categories filter
-  const modelInfo = await apiService.getModelInfo(_fileName);
+  const modelInfo = await api.getModelInfo(_fileName);
   const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
   // Рекурсивный подсчёт элементов в структуре
   let highlightIds = [];
   function countElements(item) {
     highlightIds.push(item.expressID);
-    _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds);
+    _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds); //помогает показать невидимые элементы
     let count = item.children.length;
     for (const child of item.children) {
         count += countElements(child);
@@ -122463,17 +122539,10 @@ async function loadIfc(url) {
   }
   _numberOfElements = countElements(structure);
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
-  // const btnGetData = document.getElementById("getData");
-  // console.log("btnGetData.onclick", btnGetData)
   structure.children.forEach((child) => {
     guiManager.constructVocabulary(child);
   });
-  // if (_numberOfElements != modelInfo.rowCount){
-  //     //создавать элементы словаря
-  //   structure.children.forEach((child) => {
-  //     guiManager.constructVocabulary(child);
-  //   });
-  // }
+
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
 
@@ -122608,7 +122677,7 @@ dialog.addEventListener('submit', async (event) => {
     };
     // console.log("addEventListener fields", fields)
     dialog.close();
-    apiService.updateVocabulary(_fileName, _globalid, fields);
+    api.updateVocabulary(_fileName, _globalid, fields);
   } catch (error) {
     console.error('Error:', error);
     // alert('Connection error!');
@@ -122640,7 +122709,7 @@ const btnSendData = document.getElementById("sendData");
 btnSendData.onclick = async function() {
   try {
     console.log("btnSendData.onclick");
-    const result = await apiService.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
+    const result = await api.updateVocabulary(_fileName, _globalid, {"RUS_ElementCode":_elemKsiCode});
     if (result.success == true){
       const ksiInfoInput = document.getElementById("ksi_info");
       ksiInfoInput.style.backgroundColor = '#8cff08';
@@ -122667,7 +122736,7 @@ async function getKsiForElement(expressID) {
   props = await guiManager.normaliseProps(props);
   console.log("getKsiForElement expressID props", expressID, props);
   console.log("props.type props.Name props.mat", props.type, props.Name, props.mat);
-  return await apiService.getFromAi(props.type, `${props.Name} ${props.mat}`);
+  return await api.getFromAi(props.type, `${props.Name} ${props.mat}`);
 }
 
 const btnAllKsi = document.getElementById("btnAllKsi");
@@ -122693,7 +122762,7 @@ btnAllKsi.onclick = async function() {
           const props = await _viewer.IFC.getProperties(_model.modelID, item.expressID, true, false);
           const globalid = encodeURIComponent(props.GlobalId.value);
           // console.log("btnAllKsi setKsiOnAllElements _fileName, globalid, {RUS_ElementCode:ksiCode}", _fileName, globalid, ksiCode);
-          const result = await apiService.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
+          const result = await api.updateVocabulary(_fileName, globalid, {"RUS_ElementCode":ksiCode});
           if (result.success == true){
             progressOverlay.style.backgroundColor = '#8cff08';
           }
@@ -122795,7 +122864,7 @@ btnAllKsiCancel.onclick = async function() {
 const btnOnKsi = document.getElementById("btnOnKsi");
 btnOnKsi.onclick = async function() {
   try {
-    const response = await apiService.getAllKsiExpressIds(_fileName);
+    const response = await api.getAllKsiExpressIds(_fileName);
     console.log("btnOnKsi apiService.getAllKsiExpressIds response", response);
     if (response.success){
       _allHighlightKsiIds = response.allKsiExpressID;
@@ -122818,3 +122887,143 @@ btnOffKsi.onclick = async function() {
     console.error('Error:', error);
   }
 };
+
+setInterval(async () => {
+  try {
+    const vocabularyData = await api.getAllVocabularyFilled(_fileName);
+    _allHighlightWarningIds = [];
+    createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+    let testIds = [];
+    if (vocabularyData && vocabularyData.length > 0) {
+      console.log('getAllVocabularyFilled');
+      for (const item of vocabularyData) {
+        if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+          // Применяем _warningMaterial к элементу
+          testIds.push(item.expressID);
+          console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
+          _allHighlightWarningIds.push(item.expressID);
+          await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
+          // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+      }
+      createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+    }
+  } catch (error) {
+    console.error('Error fetching vocabulary data:', error);
+  }
+}, 20000); // Каждые 10 секунд
+
+const btnLLM = document.getElementById("btnLLM");
+const llmDialog = document.getElementById("llmDialog");
+
+const llmOutput = document.getElementById("llmOutput");
+const btnCloseLLM = document.getElementById("btnCloseLLM");
+llmOutput.value = 'Ожидание ответа от LLM...';
+btnLLM.onclick = () => {
+    llmDialog.showModal();
+    llmOutput.value = 'Ожидание ответа от LLM...';
+    let checkInterval = setInterval(async () => {
+      try {
+        const llmResponse = await api.getLLMResponse(_fileName); // Предполагаем, что API теперь не требует prompt
+        if (response && response.answer) {
+          llmOutput.value = response.answer;
+          clearInterval(checkInterval); // Останавливаем проверку после получения ответа
+        }
+      } catch (error) {
+        console.error('Error calling LLM API:', error);
+        llmOutput.value = 'Ошибка при получении ответа от LLM.';
+        clearInterval(checkInterval); // Останавливаем проверку в случае ошибки
+      }
+    }, 3000); // Проверяем каждые 3 секунды
+    btnLLM.classList.add('button-active');
+  };
+
+btnCloseLLM.onclick = async () => {
+    llmDialog.style.display = 'none';
+    btnLLM.classList.remove('button-active');
+    await api.stopLLMCheck();
+  };
+
+
+
+// Функции для генерации случайных данных
+function getRandomValue(min, max) {
+  return (Math.random() * (max - min) + min).toFixed(1);
+}
+
+// Безопасная функция для обновления элемента
+function updateElement(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  } else {
+    console.warn(`Элемент с ID '${id}' не найден`);
+  }
+}
+
+function updateAirSupplyData() {
+  const temp = getRandomValue(20, 25);
+  const humidity = getRandomValue(40, 60);
+  const airFlow = getRandomValue(1000, 2000);
+  const exhaustTemp = getRandomValue(22, 27);
+
+  updateElement('air-temp', temp);
+  updateElement('air-humidity', humidity);
+  updateElement('air-flow', airFlow);
+  updateElement('air-exhaust-temp', exhaustTemp);
+}
+
+function updatePowerSupplyData() {
+  const voltage = getRandomValue(210, 230);
+  const current = getRandomValue(50, 100);
+  const powerLoad = getRandomValue(10, 50);
+
+  updateElement('power-voltage', voltage);
+  updateElement('power-current', current);
+  updateElement('power-load', powerLoad);
+}
+
+function updateCoolingSupplyData() {
+  const waterTempIn = getRandomValue(5, 10);
+  const waterTempOut = getRandomValue(10, 15);
+  const coolingCapacity = getRandomValue(50, 150);
+
+  updateElement('cooling-water-temp-in', waterTempIn);
+  updateElement('cooling-water-temp-out', waterTempOut);
+  updateElement('cooling-capacity', coolingCapacity);
+}
+
+// Функция для запуска обновлений только после загрузки DOM
+function startDataUpdates() {
+  // Проверяем, что все необходимые элементы существуют
+  const requiredIds = [
+    'air-temp', 'air-humidity', 'air-flow', 'air-exhaust-temp',
+    'power-voltage', 'power-current', 'power-load',
+    'cooling-water-temp-in', 'cooling-water-temp-out', 'cooling-capacity'
+  ];
+  
+  const missingElements = requiredIds.filter(id => !document.getElementById(id));
+  
+  if (missingElements.length > 0) {
+    console.error('Не найдены элементы с ID:', missingElements);
+    return;
+  }
+  
+  // Запускаем первое обновление сразу
+  updateAirSupplyData();
+  updatePowerSupplyData();
+  updateCoolingSupplyData();
+  
+  // Обновление данных каждые 3 секунды
+  setInterval(updateAirSupplyData, 3000);
+  setInterval(updatePowerSupplyData, 3000);
+  setInterval(updateCoolingSupplyData, 3000);
+}
+
+// Запускаем только после полной загрузки DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startDataUpdates);
+} else {
+  startDataUpdates();
+}

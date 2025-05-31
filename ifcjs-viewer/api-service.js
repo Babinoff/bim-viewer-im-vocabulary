@@ -178,7 +178,67 @@ async function getAllKsiExpressIds(fileName) {
   }
 }
 
+async function getAllVocabularyFilled(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching all filled vocabulary:', error);
+    throw error;
+  }
+}
+
+async function getLLMResponse(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting LLM response:', error);
+    throw error;
+  }
+}
+
 // Экспорт всех методов
+async function stopLLMCheck() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error stopping LLM check:', error);
+    throw error;
+  }
+}
+
 export default {
   getModelInfo,
   createVocabulary,
@@ -186,5 +246,8 @@ export default {
   updateVocabulary,
   getVocabulary,
   getFromAi,
-  getAllKsiExpressIds
+  getAllKsiExpressIds,
+  getAllVocabularyFilled,
+  getLLMResponse,
+  stopLLMCheck
 };

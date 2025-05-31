@@ -115,7 +115,7 @@ async function connectToDatabase(filename) {
     // Подключаемся к базе данных с настройками для конкурентного доступа
     _db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE, (err) => {
         if (err) {
-            throw new Error(`Ошибка при подключении к базе данных: ${err.message}`);
+            console.error(`Ошибка при подключении к базе данных: ${err.message}`);
         }
     });
 
@@ -140,7 +140,8 @@ async function initializeDatabase() {
                 RUS_StartDatePlan TEXT,
                 RUS_StartDateIs TEXT,
                 RUS_EndDatePlan TEXT,
-                RUS_EndDateIs TEXT
+                RUS_EndDateIs TEXT,
+                RUS_ElementCode TEXT
             )`,
             (err) => {
                 if (err) {
@@ -264,7 +265,7 @@ async function updateElement(filename, globalid, fieldsToUpdate) {
                       if (err) {
                           reject(`Ошибка при обновлении строки: ${err.message}`);
                       } else {
-                        console.log(`Строка с globalid "${globalid}" успешно обновлена параметрами: ${JSON.stringify(fieldsToUpdate)}`)
+                        // console.log(`Строка с globalid "${globalid}" успешно обновлена параметрами: ${JSON.stringify(fieldsToUpdate)}`)
                         resolve(`Строка с globalid "${globalid}" успешно обновлена.`);
                       }
                   });
@@ -359,6 +360,54 @@ async function getAllKsiExpressID(filename) {
 }
 }
 
+async function getAllVocabularyFilled(filename) {
+  try {
+    // console.log("getAllVocabularyFilled _db", _db)
+    if (!_db) {
+      connectToDatabase(filename);
+    }
+
+    // Проверяем существование колонки
+    const columnExists = await new Promise((resolve) => {
+        _db.get(
+            `SELECT name FROM pragma_table_info('elements') WHERE name='vocabulary'`, // Изменено на 'vocabulary'
+            (err, row) => resolve(!!row)
+        );
+    });
+
+    if (!columnExists) {
+        throw new Error('Колонка vocabulary не существует в таблице elements'); // Изменено на 'vocabulary'
+    }
+    // console.log("getAllVocabularyFilled columnExists", columnExists)
+    // Получаем все строки, где vocabulary не NULL и не пустая строка
+    const rows = await new Promise((resolve, reject) => {
+        _db.all(`SELECT * FROM elements WHERE vocabulary IS NOT NULL AND vocabulary != ''`, (err, rows) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+
+    // Фильтрация пустых колонок для каждой строки
+    const filteredRows = rows.map(row => {
+        const newRow = {};
+        for (const key in row) {
+            if (row[key] !== null && row[key] !== '') {
+                newRow[key] = row[key];
+            }
+        }
+        return newRow;
+    });
+    // console.log("getAllVocabularyFilled filteredRows", filteredRows)
+    return filteredRows;
+  } catch (err) {
+      console.error('Error in getAllVocabularyFilled:', err.message);
+      return [];
+  }
+}
+
 // Экспорт функций
 module.exports = {
   getDatabaseInfo,
@@ -368,5 +417,6 @@ module.exports = {
   getElementByGlobalId,
   updateElement,
   ensureColumnExists,
-  getAllKsiExpressID
+  getAllKsiExpressID,
+  getAllVocabularyFilled // Добавлена новая функция
 };

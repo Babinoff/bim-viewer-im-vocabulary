@@ -16,6 +16,51 @@
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
           width: 300px; /* Немного шире для удобства */
       }
+      
+      /* Стили для виджетов */
+      .info-widgets {
+          position: absolute;
+          top: 50%; /* Центрирование по вертикали */
+          right: 0; /* Привязка к правому краю */
+          transform: translateY(-50%); /* Смещение вверх на половину высоты для точного центрирования */
+          /* width: 100%; */ /* Удаляем, так как виджеты будут сгруппированы */
+          /* left: 0; */ /* Удаляем */
+          height: auto; /* Высота по содержимому */
+          pointer-events: none;
+      }
+      .widget {
+          position: relative; /* Изменяем на relative для позиционирования внутри flex/grid контейнера */
+          background-color: rgba(255, 255, 255, 0.8);
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          padding: 10px;
+          width: 200px;
+          margin-bottom: 10px; /* Добавляем отступ между виджетами */
+          pointer-events: auto;
+      }
+      /* Удаляем старые классы позиционирования */
+      /* .widget-top-left { top: 20px; left: 20px; } */
+      /* .widget-top-right { top: 20px; right: 20px; } */
+      /* .widget-bottom-left { bottom: 20px; left: 20px; } */
+      /* .widget-bottom-right { bottom: 20px; right: 20px; } */
+      /* Добавляем контейнер для вертикального расположения виджетов */
+      .info-widgets > div {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end; /* Выравнивание виджетов по правому краю внутри контейнера */
+          padding-right: 20px; /* Отступ от правого края экрана */
+      }
+      .widget h4 {
+          margin-top: 0;
+          margin-bottom: 10px;
+      }
+      .widget p {
+          margin: 5px 0;
+      }
+      .widget-top-left { top: 20px; left: 20px; }
+      .widget-top-right { top: 20px; right: 20px; }
+      .widget-bottom-left { bottom: 20px; left: 20px; }
+      .widget-bottom-right { bottom: 20px; right: 20px; }
       dialog::backdrop {
           background: rgba(0, 0, 0, 0.5);
       }
@@ -158,6 +203,7 @@
       <button class="custom-btn" id="btnAllKsi">Заполнить КСИ для всех элементов</button>
       <button class="custom-btn" id="btnOnKsi">Включить КСИ</button>
       <button class="custom-btn" id="btnOffKsi">Отключить КСИ</button>
+      <button class="custom-btn" id="btnLLM">LLM</button>
     </div>
 
     <div id="progressOverlay" class="progress-overlay">
@@ -167,66 +213,36 @@
               <div class="progress" id="progressBar"></div>
           </div>
           <div class="progress-text" id="progressText">0%</div>
-          <button id="cancelProgress" class="btn-cancel">Отмена</button>
+          <button class="btn-cancel" id="cancelProgress">Отмена</button>
       </div>
     </div>
 
-    <script type="module" src="bundle.js"></script>
-    <script>
-    </script>
-  </body>
-  <dialog id="dialog">
-    <form id="inputForm">
-      <p>
-        <br>
-        <label>
-          Номер захватки:
-          <input id="input_RUS_DivisionNumber" type="text" />
-        </label>
-        <br>
-        <label>
-          Плановая дата начала работ:
-          <input id="input_RUS_StartDatePlan" type="text" />
-        </label>
-        <br>
-        <label>
-          Фактическая дата начала работ:
-          <input id="input_RUS_StartDateIs" type="text" />
-        </label>
-        <br>
-        <label>
-          Плановая дата окончания работ:
-          <input id="input_RUS_EndDatePlan" type="text" />
-        </label>
-        <br>
-        <label>
-          Фактическая дата окончания работ:
-          <input id="input_RUS_EndDateIs" type="text" />
-        </label>
-      </p>
-      <div class="modal-content">
-        <span class="close">&times;</span>
-        <h2>KIS info</h2>
-        <br>
-        <div class="form-group">
-          <label for="ksi_info">Код:</label>
-          <input type="text" id="ksi_info" readonly
-            placeholder="Здесь будет отображаться информация">
-        </div>
-        <br>
-        <div>
-          <button id="getData" type="button" class="btn-secondary">Запрос кода у ИИ</button>
-        </div>
-        <br>
-        <div>
-          <button id="sendData" type="button" class="btn-primary">Записать код</button>
-        </div>
-      </div>
-      <br>
-      </div>
+    <div class="info-widgets">
       <div>
-        <input type="submit" id="js-close" value="Сохранить" />
+        <div class="widget widget-air-supply">
+          <h4>Воздухоснабжение</h4>
+          <p>Температура: <span id="air-temp">--</span> °C</p>
+          <p>Влажность: <span id="air-humidity">--</span> %</p>
+          <p>Расход воздуха: <span id="air-flow">--</span> м³/ч</p>
+          <p>Температура вытяжки: <span id="air-exhaust-temp">--</span> °C</p>
+        </div>
+
+        <div class="widget widget-power-supply">
+          <h4>Электроснабжение</h4>
+          <p>Напряжение: <span id="power-voltage">--</span> В</p>
+          <p>Ток: <span id="power-current">--</span> А</p>
+          <p>Нагрузка: <span id="power-load">--</span> кВт</p>
+        </div>
+
+        <div class="widget widget-cooling-supply">
+          <h4>Холодоснабжение</h4>
+          <p>Температура воды (вход): <span id="cooling-water-temp-in">--</span> °C</p>
+          <p>Температура воды (выход): <span id="cooling-water-temp-out">--</span> °C</p>
+          <p>Мощность охлаждения: <span id="cooling-capacity">--</span> кВт</p>
+        </div>
       </div>
-    </form>
-  </dialog>
+    </div>
+
+    <script type="module" src="./bundle.js"></script>
+  </body>
 </html>

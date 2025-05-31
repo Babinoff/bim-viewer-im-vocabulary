@@ -11,7 +11,7 @@ export default defineConfig(({mode}) => {
 
 	return {
 		server: {
-			port: 3000,
+			port: 3333,
 		},
 		rollupOptions: {
 			output: {
