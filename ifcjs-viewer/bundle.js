@@ -122744,15 +122744,26 @@ async function loadIfc(url) {
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   
   // Используем пакетную отправку вместо индивидуальных запросов
-  try {
-    await guiManager.constructVocabularyBatch(structure.children);
-  } catch (error) {
-    console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
-    // Fallback к старому методу в случае ошибки
-    structure.children.forEach((child) => {
-      guiManager.constructVocabulary(child);
-    });
+  {
+    try {
+      await guiManager.constructVocabularyBatch(structure.children);
+    } catch (error) {
+      console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
+      // Fallback к старому методу в случае ошибки
+      structure.children.forEach((child) => {
+        guiManager.constructVocabulary(child);
+      });
+    }
   }
+  // try {
+  //   await guiManager.constructVocabularyBatch(structure.children);
+  // } catch (error) {
+  //   console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
+  //   // Fallback к старому методу в случае ошибки
+  //   structure.children.forEach((child) => {
+  //     guiManager.constructVocabulary(child);
+  //   });
+  // }
 
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
@@ -123213,19 +123224,6 @@ function updateCoolingSupplyData() {
   updateElement('cooling-capacity', coolingCapacity);
 }
 
-async function updateLlmData(){
-  try {
-    const response = await api.getLLMResponse(_fileName); // Предполагаем, что API теперь не требует prompt
-    if (response && response.answer) {
-      llmOutput.value = response.answer;
-      clearInterval(checkInterval); // Останавливаем проверку после получения ответа
-    }
-  } catch (error) {
-    console.error('Error calling LLM API:', error);
-    llmOutput.value = '...';
-    clearInterval(checkInterval); // Останавливаем проверку в случае ошибки
-  }
-}
 // Функция для запуска обновлений только после загрузки DOM
 function startDataUpdates() {
   // Проверяем, что все необходимые элементы существуют
@@ -123246,7 +123244,7 @@ function startDataUpdates() {
   updateAirSupplyData();
   updatePowerSupplyData();
   updateCoolingSupplyData();
-  updateLlmData();
+  // updateLlmData();
   
   // Обновление данных каждые 3 секунды
   setInterval(updateAirSupplyData, 2550);

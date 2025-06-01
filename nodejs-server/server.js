@@ -20,7 +20,8 @@ const {
 const { 
   generateDataByCode,
   getCodeDescription,
-  getAvailableCodes
+  getAvailableCodes,
+  generatePersonResponsibleWithLLM
   } = require('./data-generators');
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
@@ -396,51 +397,51 @@ app.use(cors({
 
 let llmCheckInterval;
 
-app.get('/start-llm-check', async (req, res) => {
-  if (llmCheckInterval) {
-    return res.status(200).json({ message: 'LLM check already running.' });
-  }
+// app.get('/start-llm-check', async (req, res) => {
+//   if (llmCheckInterval) {
+//     return res.status(200).json({ message: 'LLM check already running.' });
+//   }
 
-  const fileName = req.query.fileName; // Получаем fileName из запроса
-  if (!fileName) {
-    return res.status(400).json({ error: 'fileName is required.' });
-  }
+//   const fileName = req.query.fileName; // Получаем fileName из запроса
+//   if (!fileName) {
+//     return res.status(400).json({ error: 'fileName is required.' });
+//   }
 
-  llmCheckInterval = setInterval(async () => {
-    try {
-      const vocabularyData = await getAllVocabularyFilled(fileName);
-      const dangerousElements = [];
+//   llmCheckInterval = setInterval(async () => {
+//     try {
+//       const vocabularyData = await getAllVocabularyFilled(fileName);
+//       const dangerousElements = [];
 
-      if (vocabularyData && vocabularyData.length > 0) {
-        for (const item of vocabularyData) {
-          if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-            dangerousElements.push(item.globalid);
-          }
-        }
-      }
+//       if (vocabularyData && vocabularyData.length > 0) {
+//         for (const item of vocabularyData) {
+//           if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+//             dangerousElements.push(item.globalid);
+//           }
+//         }
+//       }
 
-      if (dangerousElements.length > 0) {
-        const prompt = `Опасные элементы с globalid: ${dangerousElements.join(', ')}. Проанализируйте их.`;
-        const llmResponse = await chatWithModel(prompt);
-        console.log('LLM Response for dangerous elements:', llmResponse);
-      }
-    } catch (error) {
-      console.error('Error during LLM check:', error);
-    }
-  }, 30000); // Проверяем каждые 30 секунд
+//       if (dangerousElements.length > 0) {
+//         const prompt = `Опасные элементы с globalid: ${dangerousElements.join(', ')}. Проанализируйте их.`;
+//         const llmResponse = await chatWithModel(prompt);
+//         console.log('LLM Response for dangerous elements:', llmResponse);
+//       }
+//     } catch (error) {
+//       console.error('Error during LLM check:', error);
+//     }
+//   }, 30000); // Проверяем каждые 30 секунд
 
-  res.status(200).json({ message: 'LLM check started.' });
-});
+//   res.status(200).json({ message: 'LLM check started.' });
+// });
 
-app.get('/stop-llm-check', (req, res) => {
-  if (llmCheckInterval) {
-    clearInterval(llmCheckInterval);
-    llmCheckInterval = null;
-    res.status(200).json({ message: 'LLM check stopped.' });
-  } else {
-    res.status(200).json({ message: 'LLM check not running.' });
-  }
-});
+// app.get('/stop-llm-check', (req, res) => {
+//   if (llmCheckInterval) {
+//     clearInterval(llmCheckInterval);
+//     llmCheckInterval = null;
+//     res.status(200).json({ message: 'LLM check stopped.' });
+//   } else {
+//     res.status(200).json({ message: 'LLM check not running.' });
+//   }
+// });
 
 
 
@@ -481,75 +482,55 @@ app.post('/add-command', async (req, res) => {
     if (!targetGlobalIds || !Array.isArray(targetGlobalIds) || targetGlobalIds.length === 0) {
       // Массовое обновление всех элементов через SQL
       console.log('Не указаны конкретные элементы, выполняется массовое обновление всех элементов модели');
-      
+      targetGlobalIds = await getAllGlobalIds(fileName);
+    }
+
+    console.log(`Обновление ${targetGlobalIds.length} указанных элементов`);
+    
+    try {
+      const { ensureColumnExists } = require('./db');
+      await ensureColumnExists(command, 'TEXT');
+    } catch (error) {
+      console.error(`Ошибка при создании колонки ${command}:`, error);
+    }
+    
+    // Применяем команду к конкретным элементам
+    for (const globalid of targetGlobalIds) {
       try {
-        await connectToDatabase(fileName);
+        // Добавляем await, так как generateDataByCode может быть асинхронной функцией
+        const generatedValue = await generateDataByCode(command, decodeURIComponent(globalid));
+        // console.log('Сгенерированное значение:', generatedValue);
+        console.log('Тип значения:', typeof generatedValue);
+        // // Убедимся, что значение - строка
+        const stringValue = typeof generatedValue === 'object' ? JSON.stringify(generatedValue) : String(generatedValue);
+        console.log('Преобразованное значение:', stringValue);
         
-        // Используем функцию массового обновления
-        const updateResult = await updateAllElementsWithValue(
-          fileName, 
-          command, 
-          () => generateDataByCode(command)
+        const updateData = {};
+        updateData[command] = stringValue;
+        console.log('Данные для обновления:', updateData);
+        
+        // Обновляем элемент в базе данных
+        await updateElement(
+          fileName,
+          decodeURIComponent(globalid),
+          updateData
         );
         
-        if (updateResult.success) {
-          results.push({
-            scope: 'all_elements',
-            status: 'success',
-            command: command,
-            description: getCodeDescription(command),
-            updatedCount: updateResult.updatedCount,
-            message: updateResult.message
-          });
-        } else {
-          errors.push(updateResult.message);
-        }
-        
+        results.push({ 
+          globalid: globalid, 
+          status: 'success',
+          command: command,
+          description: getCodeDescription(command),
+          generatedValue: generatedValue
+        });
       } catch (error) {
-        console.error('Ошибка при массовом обновлении:', error);
-        return res.status(500).json({ error: 'Ошибка при массовом обновлении элементов' });
-      }
-      
-    } else {
-      // Обновление конкретных элементов
-      console.log(`Обновление ${targetGlobalIds.length} указанных элементов`);
-      
-      try {
-        const { ensureColumnExists } = require('./db');
-        await ensureColumnExists(command, 'TEXT');
-      } catch (error) {
-        console.error(`Ошибка при создании колонки ${command}:`, error);
-      }
-      
-      // Применяем команду к конкретным элементам
-      for (const globalid of targetGlobalIds) {
-        try {
-          const generatedValue = generateDataByCode(command);
-          const updateData = { [command]: generatedValue };
-          
-          // Обновляем элемент в базе данных
-          await updateElement(
-            fileName,
-            decodeURIComponent(globalid),
-            updateData
-          );
-          
-          results.push({ 
-            globalid: globalid, 
-            status: 'success',
-            command: command,
-            description: getCodeDescription(command),
-            generatedValue: generatedValue
-          });
-        } catch (error) {
-          console.error(`Ошибка при генерации данных для элемента ${globalid}:`, error);
-          errors.push(`Ошибка для ${globalid}: ${error}`);
-          results.push({ 
-            globalid: globalid, 
-            status: 'error', 
-            error: error.toString() 
-          });
-        }
+        console.error(`Ошибка при генерации данных для элемента ${globalid}:`, error);
+        errors.push(`Ошибка для ${globalid}: ${error}`);
+        results.push({ 
+          globalid: globalid, 
+          status: 'error', 
+          error: error.toString() 
+        });
       }
     }
     
@@ -569,6 +550,75 @@ app.post('/add-command', async (req, res) => {
   } catch (error) {
     console.error('Error in add-command:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Новый endpoint для массовой генерации данных с использованием LLM
+app.post('/generate-person-responsible-llm', async (req, res) => {
+  try {
+    console.log('/generate-person-responsible-llm req.body', req.body);
+    
+    // Валидация данных
+    if (!req.body || !req.body.fileName) {
+      const errorMessage = 'Invalid data format. Required fields: fileName';
+      console.error('/generate-person-responsible-llm', errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage
+      });
+    }
+    
+    const fileName = req.body.fileName;
+    
+    // Подключаемся к базе данных
+    await connectToDatabase(fileName);
+    
+    // Убеждаемся, что колонка RUS_PersonResponsibleForOperation существует
+    try {
+      const { ensureColumnExists } = require('./db');
+      await ensureColumnExists('RUS_PersonResponsibleForOperation', 'TEXT');
+    } catch (error) {
+      console.error('Ошибка при создании колонки RUS_PersonResponsibleForOperation:', error);
+    }
+    
+    // Запускаем массовую генерацию
+    console.log('Запуск массовой генерации данных с использованием LLM...');
+    const results = await generatePersonResponsibleWithLLM();
+    
+    // Обновляем базу данных с полученными результатами
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    
+    for (const result of results) {
+      try {
+        await updateElement(
+          fileName,
+          result.globalid,
+          { 'RUS_PersonResponsibleForOperation': result.data }
+        );
+        successCount++;
+      } catch (error) {
+        console.error(`Ошибка при обновлении элемента ${result.globalid}:`, error);
+        errorCount++;
+        errors.push(`${result.globalid}: ${error.message}`);
+      }
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Массовая генерация завершена',
+      totalProcessed: results.length,
+      successCount: successCount,
+      errorCount: errorCount,
+      errors: errors
+    });
+    
+  } catch (error) {
+    console.error('Error in generate-person-responsible-llm:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
   }
 });
 

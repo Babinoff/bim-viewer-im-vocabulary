@@ -149,6 +149,8 @@ const guiManager = new GUIManager(
   categories
 );
 
+const constructVocabularyBool = true;
+
 async function loadIfc(url) {
   // Load the model
   _model = await _viewer.IFC.loadIfcUrl(url);
@@ -178,15 +180,26 @@ async function loadIfc(url) {
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   
   // Используем пакетную отправку вместо индивидуальных запросов
-  try {
-    await guiManager.constructVocabularyBatch(structure.children);
-  } catch (error) {
-    console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
-    // Fallback к старому методу в случае ошибки
-    structure.children.forEach((child) => {
-      guiManager.constructVocabulary(child);
-    });
+  if (constructVocabularyBool){
+    try {
+      await guiManager.constructVocabularyBatch(structure.children);
+    } catch (error) {
+      console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
+      // Fallback к старому методу в случае ошибки
+      structure.children.forEach((child) => {
+        guiManager.constructVocabulary(child);
+      });
+    }
   }
+  // try {
+  //   await guiManager.constructVocabularyBatch(structure.children);
+  // } catch (error) {
+  //   console.error('Ошибка при пакетном создании словаря, переходим к индивидуальной обработке:', error);
+  //   // Fallback к старому методу в случае ошибки
+  //   structure.children.forEach((child) => {
+  //     guiManager.constructVocabulary(child);
+  //   });
+  // }
 
   await guiManager.createTreeMenu(ifcProject, _modelInfo, _numberOfElements);
 }
@@ -681,7 +694,7 @@ function startDataUpdates() {
   updateAirSupplyData();
   updatePowerSupplyData();
   updateCoolingSupplyData();
-  updateLlmData();
+  // updateLlmData();
   
   // Обновление данных каждые 3 секунды
   setInterval(updateAirSupplyData, 2550);

@@ -273,8 +273,11 @@ a {
 /* ifc.js course */
 .ifc-property-menu {
     border: 1px solid gray;
-    width: 20rem;
+    width: 30rem;
     position: absolute;
+    word-wrap: break-word;
+    white-space: normal;
+    overflow-x: auto;
     /* background-color: white; */
     
     background: var(--translucent-white);

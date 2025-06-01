@@ -1,5 +1,9 @@
 // Генераторы данных для различных типов обслуживания
 
+// const { formatDate, getRandomDate, getRandomDateInRange } = require('./date-utils');
+const { chatWithModel, streamChatCompletion } = require('./llm-services');
+const { getAllGlobalIds } = require('./db');
+
 // Функции для генерации реалистичных данных
 function generateRandomDate(startYear = 2020, endYear = 2030) {
   const start = new Date(startYear, 0, 1);
@@ -169,13 +173,134 @@ const dataGenerators = {
     }
     
     return code;
+  },
+  
+  'RUS_PersonResponsibleForOperation': async (globalId) => {
+    // Словарь должностей с соответствующими фамилиями и инициалами
+    const responsiblePersons = {
+      'Не требуется': [""],
+      'Главный инженер': [
+        'Иванов А.В.', 'Петров С.М.', 'Козлов В.И.', 'Морозов Д.А.'
+      ],
+      'Инженер по эксплуатации': [
+        'Сидоров И.П.', 'Новиков К.С.', 'Беляев А.Н.', 'Катаев М.В.'
+      ],
+      'Технический директор': [
+        'Обухов Н.Г.', 'Калинин Е.Р.', 'Лукин В.А.'
+      ],
+      'Начальник службы эксплуатации': [
+        'Матвеев О.И.', 'Ильин Р.С.', 'Деревянко А.М.', 'Савельев П.В.'
+      ],
+      'Главный механик': [
+        'Тихонов Г.А.', 'Борисов Л.Н.', 'Королев С.В.'
+      ],
+      'Главный энергетик': [
+        'Герасимов В.М.', 'Пономарев А.И.', 'Григорьев Н.С.'
+      ],
+      'Инженер-механик': [
+        'Лазарев К.В.', 'Медведев И.А.', 'Ершов Д.М.', 'Никитин П.С.'
+      ],
+      'Инженер-электрик': [
+        'Соболев А.Г.', 'Рябов В.Н.', 'Поляков М.И.', 'Цветков С.А.'
+      ],
+      'Инженер по вентиляции и кондиционированию': [
+        'Данилов Е.В.', 'Жуков Р.М.', 'Фролов А.С.'
+      ],
+      'Инженер по отоплению': [
+        'Журавлев И.Н.', 'Николаев В.А.', 'Крылов Д.И.'
+      ],
+      'Инженер по водоснабжению': [
+        'Максимов П.Г.', 'Сидоренко А.В.', 'Осипов М.С.'
+      ],
+      'Инженер по пожарной безопасности': [
+        'Белоусов К.А.', 'Федотов В.И.', 'Дорофеев Н.М.'
+      ],
+      'Руководитель технической службы': [
+        'Егоров С.В.', 'Матюшин А.Н.', 'Бобылев И.А.'
+      ],
+      'Специалист по техническому обслуживанию': [
+        'Дмитриев В.С.', 'Калашников М.А.', 'Карпов Р.И.', 'Власов Д.В.'
+      ],
+      'Мастер по ремонту оборудования': [
+        'Мельников А.М.', 'Денисов П.С.', 'Гаврилов И.В.', 'Тихомиров Н.А.'
+      ],
+      'Начальник отдела эксплуатации': [
+        'Кузьмин В.Г.', 'Кудрявцев С.И.', 'Баранов А.Р.'
+      ]
+    };
+    
+    // Если globalid предоставлен, используем LLM для выбора должности
+    if (globalId) {
+      try {
+        const positions = Object.keys(responsiblePersons);
+        const positionsText = positions.join(', ');
+        
+        const prompt = `Используй get_ifc_properties для GlobalId: ${globalId}.
+
+          Из информации возьме "type" убрав в заголовке ifc получишь тип объекта.
+          Из информации возьме "name" наименование объекта.
+          Основываясь на типе и наименовании, определи инжинерное ли оборудование. 
+          Если тип IfcFlowTerminal то это точно инжинерное оборудование.
+          Если тип IfcFlowSegment то это точно инжинерное оборудование.
+          Если тип IfcFlowFitting то это точно инжинерное оборудование.
+          Если это элемент инжинерного оборудования, то на основании данных выбери наиболее подходящую должность ответственного лица из следующего списка:
+          
+          ${positionsText}
+          
+          Если это не элемент инжинерного оборудования, то верни "Не требуется"
+          
+          Возвращай только должность или "Не требуется" без комментариев, и результатов запроса.
+          `;
+        
+        let llmResponse = '';
+        await streamChatCompletion(
+          prompt,
+          'google/gemma-2-9b',
+          (chunk) => {
+            llmResponse += chunk;
+          }
+        );
+        console.log('LLM Response:', llmResponse); // Добавлено для отладки
+        // Ищем выбранную должность в ответе LLM
+        const selectedPosition = positions.find(position => 
+          llmResponse.toLowerCase().includes(position.toLowerCase())
+        );
+        
+        if (selectedPosition && selectedPosition.includes("Не требуется")) {
+          return "Не требуется";
+        }
+        else if (selectedPosition && responsiblePersons[selectedPosition]){
+          // Выбираем случайного сотрудника для выбранной должности
+          const persons = responsiblePersons[selectedPosition];
+          const randomPerson = persons[Math.floor(Math.random() * persons.length)];
+          return `${randomPerson}, ${selectedPosition}`;
+        }
+        else{
+          return "Не данных";
+        }
+      } catch (error) {
+        console.error('Ошибка при обращении к LLM:', error);
+        // Fallback к случайному выбору при ошибке
+      }
+    }
+    
+    // Fallback: выбираем случайную должность
+    const positions = Object.keys(responsiblePersons);
+    const randomPosition = positions[Math.floor(Math.random() * positions.length)];
+    
+    // Выбираем случайного сотрудника для этой должности
+    const persons = responsiblePersons[randomPosition];
+    const randomPerson = persons[Math.floor(Math.random() * persons.length)];
+    
+    // Возвращаем в формате: Фамилия И.О., Должность
+    return `${randomPerson}, ${randomPosition}`;
   }
 };
 
 // Основная функция генерации данных по коду
-function generateDataByCode(code) {
+async function generateDataByCode(code, ...args) {
   if (dataGenerators[code]) {
-    return dataGenerators[code]();
+    return await dataGenerators[code](...args);
   } else {
     throw new Error(`Неизвестный код: ${code}`);
   }
@@ -189,7 +314,8 @@ function getCodeDescription(code) {
     'RUS_RepairDate': 'Дата ремонта',
     'RUS_OverhaulDate': 'Дата капитального ремонта',
     'RUS_SpareParts': 'Запасные части',
-    'RUS_EquipmentCode': 'Код оборудования'
+    'RUS_EquipmentCode': 'Код оборудования',
+    'RUS_PersonResponsibleForOperation': 'Лицо, ответственное за эксплуатацию'
   };
   return descriptions[code] || 'Неизвестный код';
 }
@@ -202,12 +328,73 @@ function getAvailableCodes() {
     'RUS_RepairDate', 
     'RUS_OverhaulDate',
     'RUS_SpareParts',
-    'RUS_EquipmentCode'
+    'RUS_EquipmentCode',
+    'RUS_PersonResponsibleForOperation'
   ];
+}
+
+// Функция для массовой генерации данных с использованием LLM
+async function generatePersonResponsibleWithLLM(filename) {
+  try {
+    console.log('Начинаем генерацию данных с использованием LLM...');
+    
+    // Получаем все globalid из базы данных
+    const globalIds = await getAllGlobalIds(filename);
+    console.log(`Найдено ${globalIds.length} элементов для обработки`);
+    
+    const results = [];
+    
+    // Обрабатываем каждый элемент
+    for (let i = 0; i < globalIds.length; i++) {
+      const globalId = globalIds[i]; // getAllGlobalIds возвращает массив строк, а не объектов
+      
+      // Проверяем на undefined
+      if (!globalId) {
+        console.log(`Пропускаем элемент ${i + 1}: globalId is undefined`);
+        continue;
+      }
+      
+      console.log(`Обрабатываем элемент ${i + 1}/${globalIds.length}: ${globalId}`);
+      
+      try {
+        // Генерируем данные с использованием LLM
+        const generatedData = await dataGenerators['RUS_PersonResponsibleForOperation'](globalId);
+        
+        results.push({
+          globalid: globalId,
+          data: generatedData
+        });
+        
+        console.log(`Элемент ${globalId}: ${generatedData}`);
+        
+        // Небольшая задержка между запросами к LLM
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`Ошибка при обработке элемента ${globalId}:`, error);
+        
+        // Fallback к случайной генерации
+        const fallbackData = await dataGenerators['RUS_PersonResponsibleForOperation']();
+        results.push({
+          globalid: globalId,
+          data: fallbackData
+        });
+      }
+    }
+    
+    console.log('Генерация завершена!');
+    return results;
+    
+  } catch (error) {
+    console.error('Ошибка при массовой генерации:', error);
+    throw error;
+  }
 }
 
 module.exports = {
   generateDataByCode,
   getCodeDescription,
-  getAvailableCodes
+  getAvailableCodes,
+  generatePersonResponsibleWithLLM,
+  dataGenerators, // Экспортируем словарь генераторов
 };

@@ -467,8 +467,17 @@ async function updateAllElementsWithValue(filename, columnName, valueGenerator) 
     const updates = [];
     const values = [];
     
+    // Обрабатываем каждый globalId последовательно, ожидая результат асинхронного генератора
     for (const globalId of globalIds) {
-      const generatedValue = valueGenerator();
+      // Добавляем await для асинхронного генератора значений
+      const generatedValue = await valueGenerator(globalId);
+    //   console.log('Массовое обновление - сгенерированное значение:', generatedValue);
+    //   console.log('Массовое обновление - тип значения:', typeof generatedValue);
+      
+      // Убедимся, что значение - строка
+    //   const stringValue = typeof generatedValue === 'object' ? JSON.stringify(generatedValue) : String(generatedValue);
+    //   console.log('Массовое обновление - преобразованное значение:', stringValue);
+      
       updates.push(`WHEN ? THEN ?`);
       values.push(globalId, generatedValue);
     }
