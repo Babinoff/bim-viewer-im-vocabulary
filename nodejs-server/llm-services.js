@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const API_KEY = process.env.WEBUI_TOKEN;
 const BASE_URL = 'http://localhost:9090';
-const _model = 'google/gemma-2-9b';
+const _model = 'google/gemma-3-12b';
 
 ifcAssist = `Ты специализированный помощник для работы с доступными инструментами.
 
@@ -111,7 +111,7 @@ async function streamChatCompletion(message, onChunk) {
                     try {
                         const parsed = JSON.parse(data);
                         const content = parsed.choices[0]?.delta?.content;
-                        console.log("streamChatCompletion onChunk", onChunk);
+                        // console.log("streamChatCompletion onChunk", onChunk);
                         if (content && onChunk) {
                             onChunk(content);
                         }

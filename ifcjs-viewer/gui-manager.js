@@ -46,13 +46,11 @@ export class GUIManager {
     } catch (error) {
       console.error('Error:', error);
     }
-
+    props.psets = ""
     // Prepare properties for display
     // props.psets = JSON.stringify(props.psets);
-    // console.log("props.psets", JSON.stringify(props.psets));
-    // console.log("props.mats", JSON.stringify(props.mats));
-    // props.mats = props.mats.map(mat => this.decodeUnicodeEscape(mat.Name?.value)).join('_');
-    // props.Name = this.decodeUnicodeEscape(props.Name.value)
+    // props.psets = props.psets.map(mat => this.decodeUnicodeEscape(mat.Name?.value)).join('_');
+    props.Name = this.decodeUnicodeEscape(props.Name.value)
     
     const typeID = await this.ifcManager.getIfcType(this.modelID, props.expressID);
     console.log("typeID:", typeID);
