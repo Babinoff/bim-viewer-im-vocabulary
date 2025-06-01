@@ -622,6 +622,7 @@ btnLLM.onclick = async function() {
       if (window.llmLogger) {
         window.llmLogger.logClientAction('Stopping LLM check');
       }
+      apiService.stopLlmCheck();
       llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';
@@ -630,7 +631,8 @@ btnLLM.onclick = async function() {
       if (window.llmLogger) {
         window.llmLogger.hideLogWindow();
       }
-    } else {
+    } 
+    else {
       // Запускаем проверку
       if (window.llmLogger) {
         window.llmLogger.logClientAction('Starting LLM check');
@@ -662,129 +664,103 @@ btnLLM.onclick = async function() {
 };
 
 // Функция для получения результатов LLM
-async function getLLMResults(response) {
-  try {
-    const data = await response.json();
-    
-    if (data.success && data.results) {
-      // Обрабатываем результаты
-      for (const [fileName, result] of Object.entries(data.results)) {
-        if (result.dangerousElements && result.dangerousElements.length > 0) {
-          // Подсвечиваем опасные элементы
-          await highlightDangerousElements(result.dangerousElements);
-        }
-        
-        // Отображаем сообщение
-        if (result.message) {
-          alert('LLM Analysis Results:\n\n' + result.message);
-        }
-      }
-      
-      // Деактивируем кнопку после получения результатов
-      const llmButton = document.getElementById('llm-button');
-      if (llmButton) {
-        llmButton.classList.remove('active');
-        llmButton.textContent = 'LLM';
-      }
-      
-      // Останавливаем интервал
-      if (llmCheckInterval) {
-        clearInterval(llmCheckInterval);
-        llmCheckInterval = null;
-      }
-    }
-  } catch (error) {
-    console.error('Error getting LLM results:', error);
-  }
-}
-
-// Функция для подсветки опасных элементов
-  async function highlightDangerousElements(dangerousElements) {
-    try {
-      console.log('[CLIENT-HIGHLIGHT] Starting dangerous elements highlighting');
-      console.log('[CLIENT-HIGHLIGHT] Timestamp:', new Date().toISOString());
-      console.log('[CLIENT-HIGHLIGHT] Elements to highlight:', dangerousElements.length);
-      
-      let testIds = [];
-      _allHighlightWarningIds = []; // Очищаем предыдущие подсветки
-      console.log('[CLIENT-HIGHLIGHT] Cleared previous highlight IDs');
-      
-      console.log('[CLIENT-HIGHLIGHT] Processing dangerous elements:');
-      
-      for (let i = 0; i < dangerousElements.length; i++) {
-        const item = dangerousElements[i];
-        console.log(`[CLIENT-HIGHLIGHT] Processing element ${i + 1}/${dangerousElements.length}:`, item);
-        
-        if (item.expressID && parseInt(item.vocabulary) > 900) {
-          testIds.push(item.expressID);
-          console.log(`[CLIENT-HIGHLIGHT] Adding to highlight list: ExpressID=${item.expressID}, GlobalID=${item.globalid}, Vocabulary=${item.vocabulary}`);
-          _allHighlightWarningIds.push(item.expressID);
-          
-          // Фокусируемся на элементе
-          console.log(`[CLIENT-HIGHLIGHT] Focusing camera on element ${i + 1}: ExpressID=${item.expressID}`);
-          try {
-            await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
-            console.log(`[CLIENT-HIGHLIGHT] Camera focused successfully on element ${i + 1}`);
-          } catch (focusError) {
-            console.error(`[CLIENT-HIGHLIGHT] ERROR focusing on element ${i + 1}:`, focusError);
-          }
-          
-          console.log(`[CLIENT-HIGHLIGHT] Waiting 2 seconds before next element...`);
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Уменьшаем задержку до 2 секунд
-        } else {
-          console.log(`[CLIENT-HIGHLIGHT] Skipping element ${i + 1}: ExpressID=${item.expressID}, Vocabulary=${item.vocabulary} (not meeting criteria)`);
-        }
-      }
-      
-      console.log('[CLIENT-HIGHLIGHT] All elements processed. Total highlighted:', _allHighlightWarningIds.length);
-      
-      // Создаем подмножество для цветовой подсветки
-      if (_allHighlightWarningIds.length > 0) {
-        console.log('[CLIENT-HIGHLIGHT] Creating color subset for highlighted elements');
-        console.log('[CLIENT-HIGHLIGHT] Highlight IDs:', _allHighlightWarningIds);
-        try {
-          createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
-          console.log('[CLIENT-HIGHLIGHT] Color subset created successfully');
-        } catch (subsetError) {
-          console.error('[CLIENT-HIGHLIGHT] ERROR creating color subset:', subsetError);
-        }
-      } else {
-        console.log('[CLIENT-HIGHLIGHT] No elements to highlight with color');
-      }
-      
-      console.log('[CLIENT-HIGHLIGHT] Dangerous elements highlighting completed');
-    } catch (error) {
-      console.error('[CLIENT-HIGHLIGHT] CRITICAL ERROR highlighting dangerous elements:', error);
-      console.error('[CLIENT-HIGHLIGHT] Error details:', error.message);
-      console.error('[CLIENT-HIGHLIGHT] Error stack:', error.stack);
-    }
-  }
-
-// setInterval(async () => {
+// async function getLLMResults(response) {
 //   try {
-//     const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
-//     _allHighlightWarningIds = [];
-//     createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
-//     let testIds = [];
-//     if (vocabularyData && vocabularyData.length > 0) {
-//       console.log('getAllVocabularyFilled');
-//       for (const item of vocabularyData) {
-//         if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-//           // Применяем _warningMaterial к элементу
-//           testIds.push(item.expressID);
-//           console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
-//           _allHighlightWarningIds.push(item.expressID);
-//           await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
-//           // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
-//           await new Promise(resolve => setTimeout(resolve, 5000));
+//     const data = await response.json();
+    
+//     if (data.success && data.results) {
+//       // Обрабатываем результаты
+//       for (const [fileName, result] of Object.entries(data.results)) {
+//         if (result.dangerousElements && result.dangerousElements.length > 0) {
+//           // Подсвечиваем опасные элементы
+//           await highlightDangerousElements(result.dangerousElements);
+//         }
+        
+//         // Отображаем сообщение
+//         if (result.message) {
+//           alert('LLM Analysis Results:\n\n' + result.message);
 //         }
 //       }
-//       createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+      
+//       // Деактивируем кнопку после получения результатов
+//       const llmButton = document.getElementById('llm-button');
+//       if (llmButton) {
+//         llmButton.classList.remove('active');
+//         llmButton.textContent = 'LLM';
+//       }
+      
+//       // Останавливаем интервал
+//       if (llmCheckInterval) {
+//         clearInterval(llmCheckInterval);
+//         llmCheckInterval = null;
+//       }
 //     }
 //   } catch (error) {
-//     console.error('Error fetching vocabulary data:', error);
+//     console.error('Error getting LLM results:', error);
 //   }
-// }, 20000); // Каждые 20 секунд
+// }
+
+// Функция для подсветки опасных элементов
+async function highlightDangerousElements(dangerousElements) {
+  try {
+    console.log('[CLIENT-HIGHLIGHT] Starting dangerous elements highlighting');
+    console.log('[CLIENT-HIGHLIGHT] Timestamp:', new Date().toISOString());
+    console.log('[CLIENT-HIGHLIGHT] Elements to highlight:', dangerousElements.length);
+    
+    let testIds = [];
+    _allHighlightWarningIds = []; // Очищаем предыдущие подсветки
+    console.log('[CLIENT-HIGHLIGHT] Cleared previous highlight IDs');
+    
+    console.log('[CLIENT-HIGHLIGHT] Processing dangerous elements:');
+    
+    for (let i = 0; i < dangerousElements.length; i++) {
+      const item = dangerousElements[i];
+      console.log(`[CLIENT-HIGHLIGHT] Processing element ${i + 1}/${dangerousElements.length}:`, item);
+      
+      if (item.expressID && parseInt(item.vocabulary) > 900) {
+        testIds.push(item.expressID);
+        console.log(`[CLIENT-HIGHLIGHT] Adding to highlight list: ExpressID=${item.expressID}, GlobalID=${item.globalid}, Vocabulary=${item.vocabulary}`);
+        _allHighlightWarningIds.push(item.expressID);
+        
+        // Фокусируемся на элементе
+        console.log(`[CLIENT-HIGHLIGHT] Focusing camera on element ${i + 1}: ExpressID=${item.expressID}`);
+        try {
+          await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
+          console.log(`[CLIENT-HIGHLIGHT] Camera focused successfully on element ${i + 1}`);
+        } catch (focusError) {
+          console.error(`[CLIENT-HIGHLIGHT] ERROR focusing on element ${i + 1}:`, focusError);
+        }
+        
+        console.log(`[CLIENT-HIGHLIGHT] Waiting 2 seconds before next element...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Уменьшаем задержку до 2 секунд
+      } else {
+        console.log(`[CLIENT-HIGHLIGHT] Skipping element ${i + 1}: ExpressID=${item.expressID}, Vocabulary=${item.vocabulary} (not meeting criteria)`);
+      }
+    }
+    
+    console.log('[CLIENT-HIGHLIGHT] All elements processed. Total highlighted:', _allHighlightWarningIds.length);
+    
+    // Создаем подмножество для цветовой подсветки
+    if (_allHighlightWarningIds.length > 0) {
+      console.log('[CLIENT-HIGHLIGHT] Creating color subset for highlighted elements');
+      console.log('[CLIENT-HIGHLIGHT] Highlight IDs:', _allHighlightWarningIds);
+      try {
+        createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+        console.log('[CLIENT-HIGHLIGHT] Color subset created successfully');
+      } catch (subsetError) {
+        console.error('[CLIENT-HIGHLIGHT] ERROR creating color subset:', subsetError);
+      }
+    } else {
+      console.log('[CLIENT-HIGHLIGHT] No elements to highlight with color');
+    }
+    
+    console.log('[CLIENT-HIGHLIGHT] Dangerous elements highlighting completed');
+  } catch (error) {
+    console.error('[CLIENT-HIGHLIGHT] CRITICAL ERROR highlighting dangerous elements:', error);
+    console.error('[CLIENT-HIGHLIGHT] Error details:', error.message);
+    console.error('[CLIENT-HIGHLIGHT] Error stack:', error.stack);
+  }
+}
 
 // Функции для генерации случайных данных
 

@@ -121708,7 +121708,7 @@ async function getAllVocabularyFilled(fileName) {
   }
 }
 
-async function getLLMResponse(fileName) {
+async function getLlMResponse(fileName) {
   try {
     const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
       method: 'GET',
@@ -121724,27 +121724,6 @@ async function getLLMResponse(fileName) {
     return await response.json();
   } catch (error) {
     console.error('Error getting LLM response:', error);
-    throw error;
-  }
-}
-
-// Экспорт всех методов
-async function stopLLMCheck() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error stopping LLM check:', error);
     throw error;
   }
 }
@@ -121854,102 +121833,6 @@ async function getLlmResult(fileName) {
   }
 }
 
-// Функция для запуска LLM проверки
-async function startLLMCheck(fileName) {
-  try {
-    console.log('[CLIENT-LLM] Starting LLM check for file:', fileName);
-    console.log('[CLIENT-LLM] Timestamp:', new Date().toISOString());
-    console.log('[CLIENT-LLM] Sending POST request to /api/llm-check');
-    
-    const requestBody = { fileName };
-    console.log('[CLIENT-LLM] Request body:', JSON.stringify(requestBody));
-    
-    const startTime = Date.now();
-    
-    const response = await fetch('/api/llm-check', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    const requestTime = Date.now() - startTime;
-    console.log('[CLIENT-LLM] Request completed in:', requestTime, 'ms');
-    console.log('[CLIENT-LLM] Response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      console.error('[CLIENT-LLM] ERROR: Response not OK:', response.status, response.statusText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('[CLIENT-LLM] Response data received:', data);
-    console.log('[CLIENT-LLM] LLM check request completed successfully');
-    
-    return data;
-  } catch (error) {
-    console.error('[CLIENT-LLM] CRITICAL ERROR starting LLM check:', error);
-    console.error('[CLIENT-LLM] Error details:', error.message);
-    console.error('[CLIENT-LLM] Error stack:', error.stack);
-    throw error;
-  }
-}
-
-// Функция для получения результатов LLM
-async function getLLMResults() {
-  try {
-    console.log('[CLIENT-RESULTS] Requesting LLM results from server');
-    console.log('[CLIENT-RESULTS] Timestamp:', new Date().toISOString());
-    console.log('[CLIENT-RESULTS] Sending GET request to /api/llm-results');
-    
-    const startTime = Date.now();
-    
-    const response = await fetch('/api/llm-results');
-    
-    const requestTime = Date.now() - startTime;
-    console.log('[CLIENT-RESULTS] Request completed in:', requestTime, 'ms');
-    console.log('[CLIENT-RESULTS] Response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      console.error('[CLIENT-RESULTS] ERROR: Response not OK:', response.status, response.statusText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('[CLIENT-RESULTS] Response data received:', data);
-    
-    if (data.success && data.results) {
-      const resultKeys = Object.keys(data.results);
-      console.log('[CLIENT-RESULTS] Results available for files:', resultKeys);
-      
-      if (resultKeys.length > 0) {
-        for (const [fileName, result] of Object.entries(data.results)) {
-          console.log(`[CLIENT-RESULTS] Result for file "${fileName}":`);
-          if (result.dangerousElements) {
-            console.log(`[CLIENT-RESULTS]   - Dangerous elements: ${result.dangerousElements.length}`);
-          }
-          if (result.message) {
-            console.log(`[CLIENT-RESULTS]   - Message length: ${result.message.length} characters`);
-          }
-        }
-      } else {
-        console.log('[CLIENT-RESULTS] No results available yet');
-      }
-    } else {
-      console.log('[CLIENT-RESULTS] No successful results in response');
-    }
-    
-    console.log('[CLIENT-RESULTS] LLM results request completed successfully');
-    return data;
-  } catch (error) {
-    console.error('[CLIENT-RESULTS] CRITICAL ERROR getting LLM results:', error);
-    console.error('[CLIENT-RESULTS] Error details:', error.message);
-    console.error('[CLIENT-RESULTS] Error stack:', error.stack);
-    throw error;
-  }
-}
-
 var api = {
   getModelInfo,
   createVocabulary,
@@ -121960,14 +121843,11 @@ var api = {
   getFromAi,
   getAllKsiExpressIds,
   getAllVocabularyFilled,
-  getLLMResponse,
-  stopLLMCheck,
+  getLlMResponse,
   executeCommand,
   startLlmCheck,
   stopLlmCheck,
   getLlmResult,
-  startLLMCheck,
-  getLLMResults
 };
 
 // GUI Manager Library
@@ -123947,6 +123827,7 @@ btnLLM.onclick = async function() {
       if (window.llmLogger) {
         window.llmLogger.logClientAction('Stopping LLM check');
       }
+      api.stopLlmCheck();
       llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';
@@ -123955,7 +123836,8 @@ btnLLM.onclick = async function() {
       if (window.llmLogger) {
         window.llmLogger.hideLogWindow();
       }
-    } else {
+    } 
+    else {
       // Запускаем проверку
       if (window.llmLogger) {
         window.llmLogger.logClientAction('Starting LLM check');
@@ -123985,32 +123867,6 @@ btnLLM.onclick = async function() {
     btnLLM.textContent = 'LLM';
   }
 };
-
-// setInterval(async () => {
-//   try {
-//     const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
-//     _allHighlightWarningIds = [];
-//     createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
-//     let testIds = [];
-//     if (vocabularyData && vocabularyData.length > 0) {
-//       console.log('getAllVocabularyFilled');
-//       for (const item of vocabularyData) {
-//         if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-//           // Применяем _warningMaterial к элементу
-//           testIds.push(item.expressID);
-//           console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
-//           _allHighlightWarningIds.push(item.expressID);
-//           await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
-//           // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
-//           await new Promise(resolve => setTimeout(resolve, 5000));
-//         }
-//       }
-//       createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
-//     }
-//   } catch (error) {
-//     console.error('Error fetching vocabulary data:', error);
-//   }
-// }, 20000); // Каждые 20 секунд
 
 // Функции для генерации случайных данных
 

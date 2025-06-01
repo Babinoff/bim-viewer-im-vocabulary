@@ -255,7 +255,7 @@ async function getAllVocabularyFilled(fileName) {
   }
 }
 
-async function getLLMResponse(fileName) {
+async function getLlMResponse(fileName) {
   try {
     const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
       method: 'GET',
@@ -507,12 +507,9 @@ export default {
   getFromAi,
   getAllKsiExpressIds,
   getAllVocabularyFilled,
-  getLLMResponse,
-  stopLLMCheck,
+  getLlMResponse,
   executeCommand,
   startLlmCheck,
   stopLlmCheck,
   getLlmResult,
-  startLLMCheck,
-  getLLMResults
 };
