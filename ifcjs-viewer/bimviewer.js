@@ -533,33 +533,70 @@ btnOffKsi.onclick = async function() {
   }
 }
 
-setInterval(async () => {
+// Обработчик для командной строки
+const btnExecuteCommand = document.getElementById("btnExecuteCommand");
+const commandInput = document.getElementById("commandInput");
+
+btnExecuteCommand.onclick = async function() {
   try {
-    const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
-    _allHighlightWarningIds = [];
-    createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
-    let testIds = [];
-    if (vocabularyData && vocabularyData.length > 0) {
-      console.log('getAllVocabularyFilled');
-      for (const item of vocabularyData) {
-        if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-          // Применяем _warningMaterial к элементу
-          testIds.push(item.expressID);
-          console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
-          _allHighlightWarningIds.push(item.expressID);
-          await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
-          // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-      }
-      createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+    const command = commandInput.value.trim();
+    if (!command) {
+      alert('Введите команду');
+      return;
+    }
+    
+    console.log('Выполнение команды:', command);
+    
+    const response = await apiService.executeCommand(_fileName, command);
+    
+    if (response.success) {
+      console.log('Команда выполнена успешно:', response);
+      // alert(`Команда "${response.command}" (${response.description}) выполнена успешно!\nОбработано элементов: ${response.processed}`);
+    } else {
+      console.error('Ошибка выполнения команды:', response.error);
+      // alert(`Ошибка: ${response.error}`);
     }
   } catch (error) {
-    console.error('Error fetching vocabulary data:', error);
+    console.error('Ошибка при выполнении команды:', error);
+    // alert(`Ошибка при выполнении команды: ${error.message}`);
   }
-}, 20000); // Каждые 10 секунд
+}
+
+// Обработчик Enter в поле ввода команды
+commandInput.addEventListener('keypress', function(event) {
+  if (event.key === 'Enter') {
+    btnExecuteCommand.click();
+  }
+});
+
+// setInterval(async () => {
+//   try {
+//     const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
+//     _allHighlightWarningIds = [];
+//     createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+//     let testIds = [];
+//     if (vocabularyData && vocabularyData.length > 0) {
+//       console.log('getAllVocabularyFilled');
+//       for (const item of vocabularyData) {
+//         if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+//           // Применяем _warningMaterial к элементу
+//           testIds.push(item.expressID);
+//           console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
+//           _allHighlightWarningIds.push(item.expressID);
+//           await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
+//           // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
+//           await new Promise(resolve => setTimeout(resolve, 5000));
+//         }
+//       }
+//       createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+//     }
+//   } catch (error) {
+//     console.error('Error fetching vocabulary data:', error);
+//   }
+// }, 20000); // Каждые 10 секунд
 
 // Функции для генерации случайных данных
+
 function getRandomValue(min, max) {
   return (Math.random() * (max - min) + min).toFixed(1);
 }
@@ -650,7 +687,7 @@ function startDataUpdates() {
   setInterval(updateAirSupplyData, 2550);
   setInterval(updatePowerSupplyData, 4400);
   setInterval(updateCoolingSupplyData, 1500);
-  setInterval(updateLlmData, 5100);
+  // setInterval(updateLlmData, 5100);
 }
 
 

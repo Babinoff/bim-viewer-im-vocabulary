@@ -421,6 +421,97 @@ async function getAllVocabularyFilled(filename) {
   }
 }
 
+// Функция для получения всех globalid из базы данных
+async function getAllGlobalIds(filename) {
+  try {
+    if (!_db) {
+      connectToDatabase(filename);
+    }
+
+    // Получаем все globalid из таблицы elements
+    const globalIds = await new Promise((resolve, reject) => {
+        _db.all(
+            `SELECT globalid FROM elements`,
+            (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows.map(row => row.globalid));
+            }
+        );
+    });
+    
+    return globalIds;
+  } catch (err) {
+    console.error(`getAllGlobalIds:`, err);
+    return [];
+  }
+}
+
+// Функция для массового обновления всех элементов одним SQL запросом
+async function updateAllElementsWithValue(filename, columnName, valueGenerator) {
+  try {
+    if (!_db) {
+      connectToDatabase(filename);
+    }
+
+    // Убеждаемся, что колонка существует
+    await ensureColumnExists(columnName, 'TEXT');
+
+    // Получаем все globalid
+    const globalIds = await getAllGlobalIds(filename);
+    
+    if (globalIds.length === 0) {
+      return { success: false, message: 'Нет элементов для обновления' };
+    }
+
+    // Подготавливаем данные для массового обновления
+    const updates = [];
+    const values = [];
+    
+    for (const globalId of globalIds) {
+      const generatedValue = valueGenerator();
+      updates.push(`WHEN ? THEN ?`);
+      values.push(globalId, generatedValue);
+    }
+    
+    // Добавляем все globalIds в конец для WHERE условия
+    const placeholders = globalIds.map(() => '?').join(',');
+    values.push(...globalIds);
+
+    // Формируем SQL запрос с CASE WHEN для массового обновления
+    const sql = `
+      UPDATE elements 
+      SET ${columnName} = CASE globalid 
+        ${updates.join(' ')}
+      END 
+      WHERE globalid IN (${placeholders})
+    `;
+
+    // Выполняем массовое обновление
+    const result = await new Promise((resolve, reject) => {
+      _db.run(sql, values, function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ changes: this.changes });
+        }
+      });
+    });
+
+    return {
+      success: true,
+      message: `Успешно обновлено ${result.changes} элементов`,
+      updatedCount: result.changes
+    };
+
+  } catch (err) {
+    console.error(`updateAllElementsWithValue:`, err);
+    return {
+      success: false,
+      message: `Ошибка при массовом обновлении: ${err.message}`
+    };
+  }
+}
+
 // Экспорт функций
 module.exports = {
   getDatabaseInfo,
@@ -431,5 +522,7 @@ module.exports = {
   updateElement,
   ensureColumnExists,
   getAllKsiExpressID,
-  getAllVocabularyFilled // Добавлена новая функция
+  getAllVocabularyFilled,
+  getAllGlobalIds,
+  updateAllElementsWithValue
 };

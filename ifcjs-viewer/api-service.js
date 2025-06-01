@@ -296,6 +296,32 @@ async function stopLLMCheck() {
   }
 }
 
+// Функция для выполнения команды генерации данных
+async function executeCommand(fileName, command) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/add-command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: fileName,
+        command: command
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error executing command:', error);
+    throw error;
+  }
+}
+
 export default {
   getModelInfo,
   createVocabulary,
@@ -307,5 +333,6 @@ export default {
   getAllKsiExpressIds,
   getAllVocabularyFilled,
   getLLMResponse,
-  stopLLMCheck
+  stopLLMCheck,
+  executeCommand
 };

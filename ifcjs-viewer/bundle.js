@@ -121749,6 +121749,32 @@ async function stopLLMCheck() {
   }
 }
 
+// Функция для выполнения команды генерации данных
+async function executeCommand(fileName, command) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/add-command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: fileName,
+        command: command
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error executing command:', error);
+    throw error;
+  }
+}
+
 var api = {
   getModelInfo,
   createVocabulary,
@@ -121760,7 +121786,8 @@ var api = {
   getAllKsiExpressIds,
   getAllVocabularyFilled,
   getLLMResponse,
-  stopLLMCheck
+  stopLLMCheck,
+  executeCommand
 };
 
 // GUI Manager Library
@@ -122077,6 +122104,84 @@ class GUIManager {
       document.getElementById("ifc-property-menu").style.display = "initial";
       this.propertiesButton.classList.add("active");
     };
+  }
+
+  // Методы генерации данных удалены - теперь используется командная строка
+
+  async collectAllGlobalIds() {
+    try {
+      // Получаем все элементы модели
+      const allItems = await this.viewer.IFC.getAllItemsOfType(0, this.viewer.IFC.IFCPRODUCT, false);
+      const globalIds = [];
+      
+      for (const expressID of allItems) {
+        try {
+          const props = await this.viewer.IFC.getProperties(0, expressID, false, false);
+          if (props && props.GlobalId && props.GlobalId.value) {
+            globalIds.push(encodeURIComponent(props.GlobalId.value));
+          }
+        } catch (error) {
+          console.warn(`Не удалось получить GlobalId для элемента ${expressID}:`, error);
+        }
+      }
+      
+      return globalIds;
+    } catch (error) {
+      console.error('Ошибка при сборе GlobalId элементов:', error);
+      return [];
+    }
+  }
+
+  showNotification(message, type = 'info') {
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Добавляем стили для уведомления
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 4px;
+      color: white;
+      font-weight: bold;
+      z-index: 10000;
+      max-width: 300px;
+      word-wrap: break-word;
+      transition: opacity 0.3s ease;
+    `;
+    
+    // Устанавливаем цвет в зависимости от типа
+    switch (type) {
+      case 'success':
+        notification.style.backgroundColor = '#4CAF50';
+        break;
+      case 'error':
+        notification.style.backgroundColor = '#f44336';
+        break;
+      case 'warning':
+        notification.style.backgroundColor = '#ff9800';
+        break;
+      case 'info':
+      default:
+        notification.style.backgroundColor = '#2196F3';
+        break;
+    }
+    
+    // Добавляем уведомление на страницу
+    document.body.appendChild(notification);
+    
+    // Автоматически удаляем уведомление через 5 секунд
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 5000);
   }
 }
 
@@ -122548,13 +122653,11 @@ _viewer.IFC.loader.ifcManager.applyWebIfcConfig({
 let _path;
 let _fileName;
 let _model;
-let _modelID;
 let _globalid;
 let _expressID;
 let _elemKsiCode;
 let _numberOfElements;
 let _allHighlightKsiIds = [];
-let _allHighlightWarningIds = [];
 let _elemCounter = 0;
 let _isCancelled = false;
 let _modelInfo = {
@@ -122570,7 +122673,7 @@ new MeshLambertMaterial({
   side: 2 // DoubleSide  
 });
 
-const _warningMaterial = new MeshLambertMaterial({  
+new MeshLambertMaterial({  
   color: 0xcc0000,  // Red color  
   opacity: 0.5,  
   transparent: true,  
@@ -122615,7 +122718,7 @@ const guiManager = new GUIManager(
 async function loadIfc(url) {
   // Load the model
   _model = await _viewer.IFC.loadIfcUrl(url);
-  _modelID = _model.modelID;
+  _model.modelID;
 
   guiManager.modelID = _model.modelID;
   // Add dropped shadow and post-processing efect
@@ -122996,33 +123099,70 @@ btnOffKsi.onclick = async function() {
   }
 };
 
-setInterval(async () => {
+// Обработчик для командной строки
+const btnExecuteCommand = document.getElementById("btnExecuteCommand");
+const commandInput = document.getElementById("commandInput");
+
+btnExecuteCommand.onclick = async function() {
   try {
-    const vocabularyData = await api.getAllVocabularyFilled(_fileName);
-    _allHighlightWarningIds = [];
-    createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
-    let testIds = [];
-    if (vocabularyData && vocabularyData.length > 0) {
-      console.log('getAllVocabularyFilled');
-      for (const item of vocabularyData) {
-        if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-          // Применяем _warningMaterial к элементу
-          testIds.push(item.expressID);
-          console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
-          _allHighlightWarningIds.push(item.expressID);
-          await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
-          // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-      }
-      createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+    const command = commandInput.value.trim();
+    if (!command) {
+      alert('Введите команду');
+      return;
+    }
+    
+    console.log('Выполнение команды:', command);
+    
+    const response = await api.executeCommand(_fileName, command);
+    
+    if (response.success) {
+      console.log('Команда выполнена успешно:', response);
+      // alert(`Команда "${response.command}" (${response.description}) выполнена успешно!\nОбработано элементов: ${response.processed}`);
+    } else {
+      console.error('Ошибка выполнения команды:', response.error);
+      // alert(`Ошибка: ${response.error}`);
     }
   } catch (error) {
-    console.error('Error fetching vocabulary data:', error);
+    console.error('Ошибка при выполнении команды:', error);
+    // alert(`Ошибка при выполнении команды: ${error.message}`);
   }
-}, 20000); // Каждые 10 секунд
+};
+
+// Обработчик Enter в поле ввода команды
+commandInput.addEventListener('keypress', function(event) {
+  if (event.key === 'Enter') {
+    btnExecuteCommand.click();
+  }
+});
+
+// setInterval(async () => {
+//   try {
+//     const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
+//     _allHighlightWarningIds = [];
+//     createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+//     let testIds = [];
+//     if (vocabularyData && vocabularyData.length > 0) {
+//       console.log('getAllVocabularyFilled');
+//       for (const item of vocabularyData) {
+//         if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+//           // Применяем _warningMaterial к элементу
+//           testIds.push(item.expressID);
+//           console.log('highlightIfcItemsByID', item.expressID, item.globalid); 
+//           _allHighlightWarningIds.push(item.expressID);
+//           await _viewer.IFC.selector.pickIfcItemsByID(_modelID, [item.expressID], true); // true = focusSelection
+//           // _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, [item.expressID], _warningMaterial);
+//           await new Promise(resolve => setTimeout(resolve, 5000));
+//         }
+//       }
+//       createSubsetForColor(_allHighlightWarningIds, _warningMaterial, "warningIds");
+//     }
+//   } catch (error) {
+//     console.error('Error fetching vocabulary data:', error);
+//   }
+// }, 20000); // Каждые 10 секунд
 
 // Функции для генерации случайных данных
+
 function getRandomValue(min, max) {
   return (Math.random() * (max - min) + min).toFixed(1);
 }
@@ -123112,7 +123252,7 @@ function startDataUpdates() {
   setInterval(updateAirSupplyData, 2550);
   setInterval(updatePowerSupplyData, 4400);
   setInterval(updateCoolingSupplyData, 1500);
-  setInterval(updateLlmData, 5100);
+  // setInterval(updateLlmData, 5100);
 }
 
 

@@ -13,9 +13,9 @@
 
     <div id="custom-buttons">
       <button class="custom-btn" id="btnAllKsi">Заполнить КСИ для всех элементов</button>
-      <button class="custom-btn" id="btnOnKsi">Включить КСИ</button>
-      <button class="custom-btn" id="btnOffKsi">Отключить КСИ</button>
-      <button class="custom-btn" id="btnLLM">LLM</button>
+         <button class="custom-btn" id="btnOnKsi">Включить КСИ</button>
+         <button class="custom-btn" id="btnOffKsi">Отключить КСИ</button>
+         <button class="custom-btn" id="btnLLM">LLM</button>
     </div>
 
     <div id="progressOverlay" class="progress-overlay">
@@ -79,6 +79,16 @@
           <h4>ИИ контроль</h4>
           <div class="llm-content">
             <textarea id="llmOutput" rows="8" readonly style="width: 100%; background: transparent; border: none; resize: none;"></textarea>
+            <div class="llm-command-input">
+              <input type="text" id="commandInput" placeholder="Введите команду..." class="llm-input">
+              <button id="btnExecuteCommand" class="btn-secondary" title="Отправить команду" style="font-size: 5px;padding: 6px;">
+                <svg width="10" height="10" viewBox="0 0 24 24" 
+                     fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -10,11 +10,18 @@ const {
   getElementByGlobalId, 
   updateElement,
   getAllKsiExpressID,
-  getAllVocabularyFilled
+  getAllVocabularyFilled,
+  getAllGlobalIds,
+  updateAllElementsWithValue
   } = require('./db');
 const { 
   chatWithModel
   } = require('./llm-services');
+const { 
+  generateDataByCode,
+  getCodeDescription,
+  getAvailableCodes
+  } = require('./data-generators');
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
 
@@ -432,6 +439,136 @@ app.get('/stop-llm-check', (req, res) => {
     res.status(200).json({ message: 'LLM check stopped.' });
   } else {
     res.status(200).json({ message: 'LLM check not running.' });
+  }
+});
+
+
+
+// Endpoint для выполнения команд генерации данных
+app.post('/add-command', async (req, res) => {
+  try {
+    if (!req.body || !req.body.command || !req.body.fileName) {
+      const errorMessage = 'Invalid data format. Required fields: command, fileName';
+      console.error("/add-command", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage,
+        availableCodes: getAvailableCodes()
+      });
+    }
+    
+    const { command, fileName, globalids } = req.body;
+    
+    // Проверяем, что команда является валидным кодом
+    const availableCodes = getAvailableCodes();
+    if (!availableCodes.includes(command)) {
+      return res.status(400).json({ 
+        error: `Неизвестная команда: ${command}`,
+        availableCodes: availableCodes,
+        descriptions: availableCodes.reduce((acc, code) => {
+          acc[code] = getCodeDescription(code);
+          return acc;
+        }, {})
+      });
+    }
+    
+    console.log(`Выполнение команды ${command} (${getCodeDescription(command)}) для модели ${fileName}`);
+    
+    // Если не указаны конкретные globalids, используем массовое обновление
+    let targetGlobalIds = globalids;
+    const results = [];
+    const errors = [];
+    
+    if (!targetGlobalIds || !Array.isArray(targetGlobalIds) || targetGlobalIds.length === 0) {
+      // Массовое обновление всех элементов через SQL
+      console.log('Не указаны конкретные элементы, выполняется массовое обновление всех элементов модели');
+      
+      try {
+        await connectToDatabase(fileName);
+        
+        // Используем функцию массового обновления
+        const updateResult = await updateAllElementsWithValue(
+          fileName, 
+          command, 
+          () => generateDataByCode(command)
+        );
+        
+        if (updateResult.success) {
+          results.push({
+            scope: 'all_elements',
+            status: 'success',
+            command: command,
+            description: getCodeDescription(command),
+            updatedCount: updateResult.updatedCount,
+            message: updateResult.message
+          });
+        } else {
+          errors.push(updateResult.message);
+        }
+        
+      } catch (error) {
+        console.error('Ошибка при массовом обновлении:', error);
+        return res.status(500).json({ error: 'Ошибка при массовом обновлении элементов' });
+      }
+      
+    } else {
+      // Обновление конкретных элементов
+      console.log(`Обновление ${targetGlobalIds.length} указанных элементов`);
+      
+      try {
+        const { ensureColumnExists } = require('./db');
+        await ensureColumnExists(command, 'TEXT');
+      } catch (error) {
+        console.error(`Ошибка при создании колонки ${command}:`, error);
+      }
+      
+      // Применяем команду к конкретным элементам
+      for (const globalid of targetGlobalIds) {
+        try {
+          const generatedValue = generateDataByCode(command);
+          const updateData = { [command]: generatedValue };
+          
+          // Обновляем элемент в базе данных
+          await updateElement(
+            fileName,
+            decodeURIComponent(globalid),
+            updateData
+          );
+          
+          results.push({ 
+            globalid: globalid, 
+            status: 'success',
+            command: command,
+            description: getCodeDescription(command),
+            generatedValue: generatedValue
+          });
+        } catch (error) {
+          console.error(`Ошибка при генерации данных для элемента ${globalid}:`, error);
+          errors.push(`Ошибка для ${globalid}: ${error}`);
+          results.push({ 
+            globalid: globalid, 
+            status: 'error', 
+            error: error.toString() 
+          });
+        }
+      }
+    }
+    
+    if (results.length === 0 && errors.length > 0) {
+      return res.status(400).json({ error: 'Не удалось обработать ни одного элемента', errorDetails: errors });
+    }
+    
+    res.status(200).json({ 
+      success: true,
+      command: command,
+      description: getCodeDescription(command),
+      processed: results.length,
+      errors: errors.length,
+      results: results,
+      errorDetails: errors
+    });
+  } catch (error) {
+    console.error('Error in add-command:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

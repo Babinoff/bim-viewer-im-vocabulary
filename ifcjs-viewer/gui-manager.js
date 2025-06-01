@@ -313,4 +313,82 @@ export class GUIManager {
       this.propertiesButton.classList.add("active");
     };
   }
+
+  // Методы генерации данных удалены - теперь используется командная строка
+
+  async collectAllGlobalIds() {
+    try {
+      // Получаем все элементы модели
+      const allItems = await this.viewer.IFC.getAllItemsOfType(0, this.viewer.IFC.IFCPRODUCT, false);
+      const globalIds = [];
+      
+      for (const expressID of allItems) {
+        try {
+          const props = await this.viewer.IFC.getProperties(0, expressID, false, false);
+          if (props && props.GlobalId && props.GlobalId.value) {
+            globalIds.push(encodeURIComponent(props.GlobalId.value));
+          }
+        } catch (error) {
+          console.warn(`Не удалось получить GlobalId для элемента ${expressID}:`, error);
+        }
+      }
+      
+      return globalIds;
+    } catch (error) {
+      console.error('Ошибка при сборе GlobalId элементов:', error);
+      return [];
+    }
+  }
+
+  showNotification(message, type = 'info') {
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Добавляем стили для уведомления
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 4px;
+      color: white;
+      font-weight: bold;
+      z-index: 10000;
+      max-width: 300px;
+      word-wrap: break-word;
+      transition: opacity 0.3s ease;
+    `;
+    
+    // Устанавливаем цвет в зависимости от типа
+    switch (type) {
+      case 'success':
+        notification.style.backgroundColor = '#4CAF50';
+        break;
+      case 'error':
+        notification.style.backgroundColor = '#f44336';
+        break;
+      case 'warning':
+        notification.style.backgroundColor = '#ff9800';
+        break;
+      case 'info':
+      default:
+        notification.style.backgroundColor = '#2196F3';
+        break;
+    }
+    
+    // Добавляем уведомление на страницу
+    document.body.appendChild(notification);
+    
+    // Автоматически удаляем уведомление через 5 секунд
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 5000);
+  }
 }
