@@ -121749,7 +121749,12 @@ async function stopLLMCheck() {
   }
 }
 
-// Функция для выполнения команды генерации данных
+/**
+ * Выполнить команду генерации данных
+ * @param {string} fileName - имя файла модели
+ * @param {string} command - команда для выполнения
+ * @returns {Promise<Object>} - результат выполнения команды
+ */
 async function executeCommand(fileName, command) {
   try {
     const response = await fetch(`${API_BASE_URL}/add-command`, {
@@ -121775,6 +121780,176 @@ async function executeCommand(fileName, command) {
   }
 }
 
+/**
+ * Запустить проверку LLM
+ * @param {string} fileName - имя файла модели
+ * @returns {Promise<Object>} - результат запуска
+ */
+async function startLlmCheck(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error starting LLM check:', error);
+    throw error;
+  }
+}
+
+/**
+ * Остановить проверку LLM
+ * @returns {Promise<Object>} - результат остановки
+ */
+async function stopLlmCheck() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error stopping LLM check:', error);
+    throw error;
+  }
+}
+
+/**
+ * Получить результат LLM
+ * @param {string} fileName - имя файла модели
+ * @returns {Promise<Object>} - результат LLM
+ */
+async function getLlmResult(fileName) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/get-llm-result?fileName=${fileName}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting LLM result:', error);
+    throw error;
+  }
+}
+
+// Функция для запуска LLM проверки
+async function startLLMCheck(fileName) {
+  try {
+    console.log('[CLIENT-LLM] Starting LLM check for file:', fileName);
+    console.log('[CLIENT-LLM] Timestamp:', new Date().toISOString());
+    console.log('[CLIENT-LLM] Sending POST request to /api/llm-check');
+    
+    const requestBody = { fileName };
+    console.log('[CLIENT-LLM] Request body:', JSON.stringify(requestBody));
+    
+    const startTime = Date.now();
+    
+    const response = await fetch('/api/llm-check', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    const requestTime = Date.now() - startTime;
+    console.log('[CLIENT-LLM] Request completed in:', requestTime, 'ms');
+    console.log('[CLIENT-LLM] Response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      console.error('[CLIENT-LLM] ERROR: Response not OK:', response.status, response.statusText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('[CLIENT-LLM] Response data received:', data);
+    console.log('[CLIENT-LLM] LLM check request completed successfully');
+    
+    return data;
+  } catch (error) {
+    console.error('[CLIENT-LLM] CRITICAL ERROR starting LLM check:', error);
+    console.error('[CLIENT-LLM] Error details:', error.message);
+    console.error('[CLIENT-LLM] Error stack:', error.stack);
+    throw error;
+  }
+}
+
+// Функция для получения результатов LLM
+async function getLLMResults() {
+  try {
+    console.log('[CLIENT-RESULTS] Requesting LLM results from server');
+    console.log('[CLIENT-RESULTS] Timestamp:', new Date().toISOString());
+    console.log('[CLIENT-RESULTS] Sending GET request to /api/llm-results');
+    
+    const startTime = Date.now();
+    
+    const response = await fetch('/api/llm-results');
+    
+    const requestTime = Date.now() - startTime;
+    console.log('[CLIENT-RESULTS] Request completed in:', requestTime, 'ms');
+    console.log('[CLIENT-RESULTS] Response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      console.error('[CLIENT-RESULTS] ERROR: Response not OK:', response.status, response.statusText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('[CLIENT-RESULTS] Response data received:', data);
+    
+    if (data.success && data.results) {
+      const resultKeys = Object.keys(data.results);
+      console.log('[CLIENT-RESULTS] Results available for files:', resultKeys);
+      
+      if (resultKeys.length > 0) {
+        for (const [fileName, result] of Object.entries(data.results)) {
+          console.log(`[CLIENT-RESULTS] Result for file "${fileName}":`);
+          if (result.dangerousElements) {
+            console.log(`[CLIENT-RESULTS]   - Dangerous elements: ${result.dangerousElements.length}`);
+          }
+          if (result.message) {
+            console.log(`[CLIENT-RESULTS]   - Message length: ${result.message.length} characters`);
+          }
+        }
+      } else {
+        console.log('[CLIENT-RESULTS] No results available yet');
+      }
+    } else {
+      console.log('[CLIENT-RESULTS] No successful results in response');
+    }
+    
+    console.log('[CLIENT-RESULTS] LLM results request completed successfully');
+    return data;
+  } catch (error) {
+    console.error('[CLIENT-RESULTS] CRITICAL ERROR getting LLM results:', error);
+    console.error('[CLIENT-RESULTS] Error details:', error.message);
+    console.error('[CLIENT-RESULTS] Error stack:', error.stack);
+    throw error;
+  }
+}
+
 var api = {
   getModelInfo,
   createVocabulary,
@@ -121787,7 +121962,12 @@ var api = {
   getAllVocabularyFilled,
   getLLMResponse,
   stopLLMCheck,
-  executeCommand
+  executeCommand,
+  startLlmCheck,
+  stopLlmCheck,
+  getLlmResult,
+  startLLMCheck,
+  getLLMResults
 };
 
 // GUI Manager Library
@@ -122184,6 +122364,594 @@ class GUIManager {
     }, 5000);
   }
 }
+
+// Element Highlighter - логика подсветки и фокусировки на элементах
+
+class ElementHighlighter {
+  constructor(viewer, modelID, warningMaterial) {
+    this.viewer = viewer;
+    this.modelID = modelID;
+    this.warningMaterial = warningMaterial;
+    this.allHighlightWarningIds = [];
+  }
+
+  // Функция для подсветки опасных элементов
+  async highlightDangerousElements(dangerousElements) {
+    try {
+      console.log('[ELEMENT-HIGHLIGHTER] Starting dangerous elements highlighting');
+      console.log('[ELEMENT-HIGHLIGHTER] Timestamp:', new Date().toISOString());
+      console.log('[ELEMENT-HIGHLIGHTER] Elements to highlight:', dangerousElements.length);
+      
+      let testIds = [];
+      this.allHighlightWarningIds = []; // Очищаем предыдущие подсветки
+      console.log('[ELEMENT-HIGHLIGHTER] Cleared previous highlight IDs');
+      
+      console.log('[ELEMENT-HIGHLIGHTER] Processing dangerous elements:');
+      
+      for (let i = 0; i < dangerousElements.length; i++) {
+        const item = dangerousElements[i];
+        console.log(`[ELEMENT-HIGHLIGHTER] Processing element ${i + 1}/${dangerousElements.length}:`, item);
+        
+        if (item.expressID && parseInt(item.vocabulary) > 900) {
+          testIds.push(item.expressID);
+          console.log(`[ELEMENT-HIGHLIGHTER] Adding to highlight list: ExpressID=${item.expressID}, GlobalID=${item.globalid}, Vocabulary=${item.vocabulary}`);
+          this.allHighlightWarningIds.push(item.expressID);
+          
+          // Фокусируемся на элементе
+          console.log(`[ELEMENT-HIGHLIGHTER] Focusing camera on element ${i + 1}: ExpressID=${item.expressID}`);
+          try {
+            await this.viewer.IFC.selector.pickIfcItemsByID(this.modelID, [item.expressID], true); // true = focusSelection
+            console.log(`[ELEMENT-HIGHLIGHTER] Camera focused successfully on element ${i + 1}`);
+          } catch (focusError) {
+            console.error(`[ELEMENT-HIGHLIGHTER] ERROR focusing on element ${i + 1}:`, focusError);
+          }
+          
+          console.log(`[ELEMENT-HIGHLIGHTER] Waiting 2 seconds before next element...`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Уменьшаем задержку до 2 секунд
+        } else {
+          console.log(`[ELEMENT-HIGHLIGHTER] Skipping element ${i + 1}: ExpressID=${item.expressID}, Vocabulary=${item.vocabulary} (not meeting criteria)`);
+        }
+      }
+      
+      console.log('[ELEMENT-HIGHLIGHTER] All elements processed. Total highlighted:', this.allHighlightWarningIds.length);
+      
+      // Создаем подмножество для цветовой подсветки
+      if (this.allHighlightWarningIds.length > 0) {
+        console.log('[ELEMENT-HIGHLIGHTER] Creating color subset for highlighted elements');
+        console.log('[ELEMENT-HIGHLIGHTER] Highlight IDs:', this.allHighlightWarningIds);
+        try {
+          this.createSubsetForColor(this.allHighlightWarningIds, this.warningMaterial, "warningIds");
+          console.log('[ELEMENT-HIGHLIGHTER] Color subset created successfully');
+        } catch (subsetError) {
+          console.error('[ELEMENT-HIGHLIGHTER] ERROR creating color subset:', subsetError);
+        }
+      } else {
+        console.log('[ELEMENT-HIGHLIGHTER] No elements to highlight with color');
+      }
+      
+      console.log('[ELEMENT-HIGHLIGHTER] Dangerous elements highlighting completed');
+    } catch (error) {
+      console.error('[ELEMENT-HIGHLIGHTER] CRITICAL ERROR highlighting dangerous elements:', error);
+      console.error('[ELEMENT-HIGHLIGHTER] Error details:', error.message);
+      console.error('[ELEMENT-HIGHLIGHTER] Error stack:', error.stack);
+    }
+  }
+
+  // Создание подмножества для цветовой подсветки
+  createSubsetForColor(ids, material, subsetName) {
+    try {
+      console.log(`[ELEMENT-HIGHLIGHTER] Creating subset '${subsetName}' with ${ids.length} elements`);
+      
+      // Удаляем предыдущее подмножество если существует
+      if (this.viewer.IFC.loader.ifcManager.state.models[this.modelID]) {
+        const existingSubset = this.viewer.IFC.loader.ifcManager.state.models[this.modelID].mesh.children
+          .find(child => child.name === subsetName);
+        if (existingSubset) {
+          console.log(`[ELEMENT-HIGHLIGHTER] Removing existing subset '${subsetName}'`);
+          this.viewer.IFC.loader.ifcManager.removeSubset(this.modelID, material, subsetName);
+        }
+      }
+      
+      // Создаем новое подмножество
+      this.viewer.IFC.loader.ifcManager.createSubset({
+        modelID: this.modelID,
+        ids: ids,
+        material: material,
+        scene: this.viewer.context.getScene(),
+        removePrevious: true,
+        customID: subsetName
+      });
+      
+      console.log(`[ELEMENT-HIGHLIGHTER] Subset '${subsetName}' created successfully`);
+    } catch (error) {
+      console.error(`[ELEMENT-HIGHLIGHTER] Error creating subset '${subsetName}':`, error);
+      throw error;
+    }
+  }
+
+  // Очистка всех подсветок
+  clearHighlights() {
+    try {
+      console.log('[ELEMENT-HIGHLIGHTER] Clearing all highlights');
+      
+      if (this.allHighlightWarningIds.length > 0) {
+        this.viewer.IFC.loader.ifcManager.removeSubset(this.modelID, this.warningMaterial, "warningIds");
+        this.allHighlightWarningIds = [];
+        console.log('[ELEMENT-HIGHLIGHTER] All highlights cleared');
+      } else {
+        console.log('[ELEMENT-HIGHLIGHTER] No highlights to clear');
+      }
+    } catch (error) {
+      console.error('[ELEMENT-HIGHLIGHTER] Error clearing highlights:', error);
+    }
+  }
+
+  // Подсветка конкретных элементов по ID
+  async highlightSpecificElements(expressIDs, focusOnElements = true) {
+    try {
+      console.log(`[ELEMENT-HIGHLIGHTER] Highlighting ${expressIDs.length} specific elements`);
+      
+      this.allHighlightWarningIds = [...expressIDs];
+      
+      if (focusOnElements) {
+        for (let i = 0; i < expressIDs.length; i++) {
+          const expressID = expressIDs[i];
+          console.log(`[ELEMENT-HIGHLIGHTER] Focusing on element ${i + 1}/${expressIDs.length}: ${expressID}`);
+          
+          try {
+            await this.viewer.IFC.selector.pickIfcItemsByID(this.modelID, [expressID], true);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          } catch (focusError) {
+            console.error(`[ELEMENT-HIGHLIGHTER] Error focusing on element ${expressID}:`, focusError);
+          }
+        }
+      }
+      
+      // Создаем цветовую подсветку
+      this.createSubsetForColor(expressIDs, this.warningMaterial, "warningIds");
+      
+      console.log('[ELEMENT-HIGHLIGHTER] Specific elements highlighting completed');
+    } catch (error) {
+      console.error('[ELEMENT-HIGHLIGHTER] Error highlighting specific elements:', error);
+      throw error;
+    }
+  }
+
+  // Получение списка подсвеченных элементов
+  getHighlightedElements() {
+    return [...this.allHighlightWarningIds];
+  }
+
+  // Проверка, подсвечен ли элемент
+  isElementHighlighted(expressID) {
+    return this.allHighlightWarningIds.includes(expressID);
+  }
+}
+
+// Экспорт для использования в других файлах
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ElementHighlighter;
+} else {
+  window.ElementHighlighter = ElementHighlighter;
+}
+
+// LLM Client - клиентская часть для работы с LLM проверками
+
+class LLMClient {
+  constructor(apiService, viewer) {
+    this.apiService = apiService;
+    this.viewer = viewer;
+    this.checkInterval = null;
+    this.isRunning = false;
+    this.intervalDelay = 20000; // 20 секунд
+  }
+
+  // Запуск LLM-проверки
+  async startCheck(fileName, modelID, warningMaterial) {
+    try {
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Starting LLM check process');
+        window.llmLogger.logClientAction(`File: ${fileName}`);
+      }
+      
+      if (this.isRunning) {
+        if (window.llmLogger) {
+          window.llmLogger.logClientAction('Check already running, stopping previous check');
+        }
+        this.stopCheck();
+      }
+      
+      this.isRunning = true;
+      
+      // Запускаем серверную проверку
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Starting server LLM check');
+      }
+      await this.apiService.startLlmCheck(fileName);
+      
+      // Выполняем первую проверку сразу
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Performing immediate first check');
+      }
+      await this.performCheck(fileName, modelID, warningMaterial);
+      
+      // Запускаем интервал для последующих проверок
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Setting up polling interval');
+      }
+      this.checkInterval = setInterval(async () => {
+        if (this.isRunning) {
+          await this.performCheck(fileName, modelID, warningMaterial);
+        }
+      }, this.intervalDelay);
+      
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
+      }
+      
+    } catch (error) {
+      if (window.llmLogger) {
+        window.llmLogger.logError('client', `CRITICAL ERROR starting LLM check: ${error.message}`);
+      }
+      console.error('[LLM-CLIENT] CRITICAL ERROR starting LLM check:', error);
+      this.isRunning = false;
+      throw error;
+    }
+  }
+  
+  // Выполнение одной проверки
+  async performCheck(fileName, modelID, warningMaterial) {
+    try {
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Polling for LLM results...');
+      }
+      const response = await this.apiService.getLlmResult(fileName);
+      
+      if (response && response.result) {
+        if (window.llmLogger) {
+          window.llmLogger.logServerResponse('LLM results received');
+          window.llmLogger.logLLMResponse(JSON.stringify(response.result, null, 2));
+        }
+        
+        // Обновляем UI с результатом
+        this.updateLLMOutput(response.result);
+        
+        // Обрабатываем результаты и подсвечиваем элементы
+        await this.processLLMResults(response, modelID, warningMaterial);
+      } else {
+        if (window.llmLogger) {
+          window.llmLogger.logClientAction('No results available yet');
+        }
+      }
+    } catch (error) {
+      if (window.llmLogger) {
+        window.llmLogger.logError('client', `Error during check polling: ${error.message}`);
+      }
+      console.error('[LLM-CLIENT] Error during check polling:', error);
+    }
+  }
+  
+  // Остановка LLM-проверки
+  stopCheck() {
+    if (window.llmLogger) {
+      window.llmLogger.logClientAction('Stopping LLM check');
+    }
+    
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Polling interval cleared');
+      }
+    }
+    
+    this.isRunning = false;
+    if (window.llmLogger) {
+      window.llmLogger.logClientAction('LLM check stopped');
+    }
+  }
+  
+  // Обновление вывода LLM в UI
+  updateLLMOutput(result) {
+    try {
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Updating LLM output in UI');
+      }
+      const llmOutput = document.getElementById('llmOutput');
+      if (llmOutput) {
+        // Отключаем обновление llmOutput, так как теперь используем логгер
+        // llmOutput.value = result.message || result;
+        if (window.llmLogger) {
+          window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
+        }
+      } else {
+        if (window.llmLogger) {
+          window.llmLogger.logClientAction('LLM output element not found');
+        }
+      }
+    } catch (error) {
+      if (window.llmLogger) {
+        window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
+      }
+      console.error('[LLM-CLIENT] Error updating LLM output:', error);
+    }
+  }
+  
+  // Обработка результатов LLM и подсветка элементов
+  async processLLMResults(response, modelID, warningMaterial) {
+    try {
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Processing LLM results for highlighting');
+      }
+      
+      if (response.result && response.result.dangerousElements) {
+        if (window.llmLogger) {
+          window.llmLogger.logClientAction(`Found dangerous elements: ${response.result.dangerousElements.length}`);
+        }
+        
+        // Создаем экземпляр highlighter для подсветки
+        const highlighter = new ElementHighlighter(this.viewer, modelID, warningMaterial);
+        await highlighter.highlightDangerousElements(response.result.dangerousElements);
+      } else {
+        if (window.llmLogger) {
+          window.llmLogger.logClientAction('No dangerous elements found in results');
+        }
+      }
+    } catch (error) {
+      if (window.llmLogger) {
+        window.llmLogger.logError('client', `Error processing LLM results: ${error.message}`);
+      }
+      console.error('[LLM-CLIENT] Error processing LLM results:', error);
+    }
+  }
+  
+  // Проверка статуса работы
+  isCheckRunning() {
+    return this.isRunning;
+  }
+  
+  // Установка интервала проверки
+  setCheckInterval(intervalMs) {
+    this.intervalDelay = intervalMs;
+    if (window.llmLogger) {
+      window.llmLogger.logClientAction(`Check interval set to ${intervalMs/1000} seconds`);
+    }
+  }
+}
+
+// Экспорт для использования в других файлах
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = LLMClient;
+} else {
+  window.LLMClient = LLMClient;
+}
+
+// LLM Logger - модуль для логирования и отображения логов LLM системы
+
+class LLMLogger {
+  constructor() {
+    this.logWindow = null;
+    this.logOutput = null;
+    this.isVisible = false;
+    this.logs = [];
+    this.maxLogs = 1000; // Максимальное количество логов в памяти
+    
+    this.initializeLogWindow();
+  }
+
+  initializeLogWindow() {
+    this.logWindow = document.getElementById('llmLogWindow');
+    this.logOutput = document.getElementById('llmLogOutput');
+    
+    if (!this.logWindow || !this.logOutput) {
+      console.error('[LLM-LOGGER] Log window elements not found');
+      return;
+    }
+
+    // Обработчик закрытия окна
+    const closeBtn = document.getElementById('llmLogClose');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.hideLogWindow();
+      });
+    }
+
+    // Делаем окно перетаскиваемым
+    this.makeDraggable();
+    
+    console.log('[LLM-LOGGER] Log window initialized');
+  }
+
+  makeDraggable() {
+    const header = this.logWindow.querySelector('.llm-log-header');
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('llm-log-close')) return;
+      
+      initialX = e.clientX - xOffset;
+      initialY = e.clientY - yOffset;
+      isDragging = true;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+        xOffset = currentX;
+        yOffset = currentY;
+        
+        this.logWindow.style.transform = `translate(${currentX}px, ${currentY}px)`;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+  }
+
+  showLogWindow() {
+    if (this.logWindow) {
+      this.logWindow.style.display = 'flex';
+      this.isVisible = true;
+      this.log('client', 'LLM Log Window opened');
+    }
+  }
+
+  hideLogWindow() {
+    if (this.logWindow) {
+      this.logWindow.style.display = 'none';
+      this.isVisible = false;
+      this.log('client', 'LLM Log Window closed');
+    }
+  }
+
+  toggleLogWindow() {
+    if (this.isVisible) {
+      this.hideLogWindow();
+    } else {
+      this.showLogWindow();
+    }
+  }
+
+  log(source, message, type = 'info') {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      source,
+      message,
+      type
+    };
+
+    // Добавляем в массив логов
+    this.logs.push(logEntry);
+    
+    // Ограничиваем количество логов
+    if (this.logs.length > this.maxLogs) {
+      this.logs = this.logs.slice(-this.maxLogs);
+    }
+
+    // Отображаем в консоли
+    console.log(`[LLM-${source.toUpperCase()}] ${message}`);
+    
+    // Отображаем в окне логов
+    this.displayLogEntry(logEntry);
+  }
+
+  displayLogEntry(logEntry) {
+    if (!this.logOutput) return;
+
+    const logElement = document.createElement('div');
+    logElement.className = `llm-log-entry ${logEntry.source} ${logEntry.type}`;
+    
+    const timeStr = new Date(logEntry.timestamp).toLocaleTimeString();
+    
+    logElement.innerHTML = `
+      <span class="llm-log-timestamp">${timeStr}</span>
+      <span class="llm-log-source">[${logEntry.source.toUpperCase()}]</span>
+      <span class="llm-log-message">${this.escapeHtml(logEntry.message)}</span>
+    `;
+
+    this.logOutput.appendChild(logElement);
+    
+    // Автоскролл вниз
+    this.logOutput.scrollTop = this.logOutput.scrollHeight;
+  }
+
+  logClientAction(message) {
+    this.log('client', message, 'info');
+  }
+
+  logServerResponse(message) {
+    this.log('server', message, 'info');
+  }
+
+  logLLMResponse(message) {
+    this.log('llm', message, 'llm-response');
+  }
+
+  logError(source, message) {
+    this.log(source, message, 'error');
+  }
+
+  clearLogs() {
+    this.logs = [];
+    if (this.logOutput) {
+      this.logOutput.innerHTML = '';
+    }
+    this.log('client', 'Logs cleared');
+  }
+
+  exportLogs() {
+    const logsText = this.logs.map(log => 
+      `${log.timestamp} [${log.source.toUpperCase()}] ${log.message}`
+    ).join('\n');
+    
+    const blob = new Blob([logsText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `llm-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    this.log('client', 'Logs exported to file');
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Метод для потокового отображения данных (аналог streamChatCompletion)
+  streamLog(source, initialMessage) {
+    const timestamp = new Date().toISOString();
+    const logElement = document.createElement('div');
+    logElement.className = `llm-log-entry ${source} streaming`;
+    
+    const timeStr = new Date(timestamp).toLocaleTimeString();
+    
+    logElement.innerHTML = `
+      <span class="llm-log-timestamp">${timeStr}</span>
+      <span class="llm-log-source">[${source.toUpperCase()}]</span>
+      <span class="llm-log-message">${this.escapeHtml(initialMessage)}</span>
+    `;
+
+    if (this.logOutput) {
+      this.logOutput.appendChild(logElement);
+      this.logOutput.scrollTop = this.logOutput.scrollHeight;
+    }
+
+    // Возвращаем функцию для обновления сообщения
+    return {
+      update: (newMessage) => {
+        const messageSpan = logElement.querySelector('.llm-log-message');
+        if (messageSpan) {
+          messageSpan.innerHTML = this.escapeHtml(newMessage);
+          if (this.logOutput) {
+            this.logOutput.scrollTop = this.logOutput.scrollHeight;
+          }
+        }
+      },
+      complete: () => {
+        logElement.classList.remove('streaming');
+      }
+    };
+  }
+}
+
+// Глобальный экземпляр логгера
+window.llmLogger = new LLMLogger();
 
 //UI functions
 
@@ -122653,6 +123421,7 @@ _viewer.IFC.loader.ifcManager.applyWebIfcConfig({
 let _path;
 let _fileName;
 let _model;
+let _modelID;
 let _globalid;
 let _expressID;
 let _elemKsiCode;
@@ -122673,7 +123442,7 @@ new MeshLambertMaterial({
   side: 2 // DoubleSide  
 });
 
-new MeshLambertMaterial({  
+const _warningMaterial = new MeshLambertMaterial({  
   color: 0xcc0000,  // Red color  
   opacity: 0.5,  
   transparent: true,  
@@ -122718,7 +123487,7 @@ const guiManager = new GUIManager(
 async function loadIfc(url) {
   // Load the model
   _model = await _viewer.IFC.loadIfcUrl(url);
-  _model.modelID;
+  _modelID = _model.modelID;
 
   guiManager.modelID = _model.modelID;
   // Add dropped shadow and post-processing efect
@@ -123146,6 +123915,79 @@ commandInput.addEventListener('keypress', function(event) {
   }
 });
 
+// Создаем экземпляр LLM клиента
+let llmClient = null;
+
+// Обработчик кнопки LLM
+const btnLLM = document.getElementById("btnLLM");
+
+btnLLM.onclick = async function() {
+  try {
+    if (window.llmLogger) {
+      window.llmLogger.logClientAction('LLM button clicked');
+      window.llmLogger.logClientAction(`Current file name: ${_fileName}`);
+    }
+    
+    if (!_fileName) {
+      if (window.llmLogger) {
+        window.llmLogger.logError('client', 'No current file name available');
+      }
+      alert('No file loaded. Please load a model first.');
+      return;
+    }
+    
+    // Инициализируем LLM клиент если еще не создан
+    if (!llmClient) {
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Initializing LLM client');
+      }
+      llmClient = new LLMClient(api, _viewer);
+    }
+    
+    if (llmClient.isCheckRunning()) {
+      // Останавливаем проверку
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Stopping LLM check');
+      }
+      llmClient.stopCheck();
+      btnLLM.style.backgroundColor = '';
+      btnLLM.textContent = 'LLM';
+      
+      // Скрываем окно логов при остановке
+      if (window.llmLogger) {
+        window.llmLogger.hideLogWindow();
+      }
+    } else {
+      // Запускаем проверку
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction('Starting LLM check');
+      }
+      btnLLM.style.backgroundColor = 'red';
+      btnLLM.textContent = 'LLM (активно)';
+      
+      // Показываем окно логов при запуске
+      if (window.llmLogger) {
+        window.llmLogger.showLogWindow();
+      }
+      
+      // Запускаем LLM проверку через новый клиент
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction(`Starting LLM check for file: ${_fileName}`);
+      }
+      await llmClient.startCheck(_fileName, _modelID, _warningMaterial);
+    }
+  } catch (error) {
+    if (window.llmLogger) {
+      window.llmLogger.logError('client', `CRITICAL ERROR при работе с LLM: ${error.message}`);
+    }
+    console.error('[CLIENT-UI] CRITICAL ERROR при работе с LLM:', error);
+    
+    // Сбрасываем кнопку в случае ошибки
+    btnLLM.style.backgroundColor = '';
+    btnLLM.textContent = 'LLM';
+  }
+};
+
 // setInterval(async () => {
 //   try {
 //     const vocabularyData = await apiService.getAllVocabularyFilled(_fileName);
@@ -123170,7 +124012,7 @@ commandInput.addEventListener('keypress', function(event) {
 //   } catch (error) {
 //     console.error('Error fetching vocabulary data:', error);
 //   }
-// }, 20000); // Каждые 10 секунд
+// }, 20000); // Каждые 20 секунд
 
 // Функции для генерации случайных данных
 

@@ -375,29 +375,50 @@ async function getAllKsiExpressID(filename) {
 
 async function getAllVocabularyFilled(filename) {
   try {
-    // console.log("getAllVocabularyFilled _db", _db)
+    console.log('[DB-VOCABULARY] Starting getAllVocabularyFilled for file:', filename);
+    console.log('[DB-VOCABULARY] Timestamp:', new Date().toISOString());
+    
     if (!_db) {
       connectToDatabase(filename);
     }
 
+    console.log('[DB-VOCABULARY] Database connection established');
+
     // Проверяем существование колонки
     const columnExists = await new Promise((resolve) => {
         _db.get(
-            `SELECT name FROM pragma_table_info('elements') WHERE name='vocabulary'`, // Изменено на 'vocabulary'
-            (err, row) => resolve(!!row)
+            `SELECT name FROM pragma_table_info('elements') WHERE name='vocabulary'`,
+            (err, row) => {
+                console.log('[DB-VOCABULARY] Column existence check result:', !!row);
+                resolve(!!row);
+            }
         );
     });
 
     if (!columnExists) {
-        throw new Error('Колонка vocabulary не существует в таблице elements'); // Изменено на 'vocabulary'
+        console.error('[DB-VOCABULARY] CRITICAL ERROR: Column vocabulary does not exist');
+        throw new Error('Колонка vocabulary не существует в таблице elements');
     }
-    // console.log("getAllVocabularyFilled columnExists", columnExists)
+    
+    const query = `SELECT * FROM elements WHERE vocabulary IS NOT NULL AND vocabulary != ''`;
+    console.log('[DB-VOCABULARY] Executing query:', query);
+    
+    const startTime = Date.now();
+    
     // Получаем все строки, где vocabulary не NULL и не пустая строка
     const rows = await new Promise((resolve, reject) => {
-        _db.all(`SELECT * FROM elements WHERE vocabulary IS NOT NULL AND vocabulary != ''`, (err, rows) => {
+        _db.all(query, (err, rows) => {
+            const executionTime = Date.now() - startTime;
+            
             if (err) {
+                console.error('[DB-VOCABULARY] CRITICAL ERROR executing query:', err);
+                console.error('[DB-VOCABULARY] Error details:', err.message);
+                console.error('[DB-VOCABULARY] Query execution time:', executionTime, 'ms');
                 reject(err);
             } else {
+                console.log('[DB-VOCABULARY] Query executed successfully');
+                console.log('[DB-VOCABULARY] Query execution time:', executionTime, 'ms');
+                console.log('[DB-VOCABULARY] Rows returned:', rows ? rows.length : 0);
                 resolve(rows);
             }
         });
@@ -413,10 +434,21 @@ async function getAllVocabularyFilled(filename) {
         }
         return newRow;
     });
-    // console.log("getAllVocabularyFilled filteredRows", filteredRows)
+    
+    // if (filteredRows && filteredRows.length > 0) {
+    //   console.log('[DB-VOCABULARY] Sample of first 3 filtered rows:');
+    //   filteredRows.slice(0, 3).forEach((row, index) => {
+    //     console.log(`[DB-VOCABULARY]   Row ${index + 1}: GlobalID=${row.globalid}, ExpressID=${row.expressID}, Vocabulary=${row.vocabulary}`);
+    //   });
+    // } else {
+    //   console.log('[DB-VOCABULARY] No filtered rows returned');
+    // }
+    
+    console.log('[DB-VOCABULARY] getAllVocabularyFilled completed successfully');
     return filteredRows;
   } catch (err) {
-      console.error('Error in getAllVocabularyFilled:', err.message);
+      console.error('[DB-VOCABULARY] CRITICAL ERROR in getAllVocabularyFilled:', err.message);
+      console.error('[DB-VOCABULARY] Error stack:', err.stack);
       return [];
   }
 }

@@ -395,53 +395,96 @@ app.use(cors({
   methods: ['POST', 'GET']
 }));
 
-let llmCheckInterval;
+// Импортируем LLM сервер
+const llmServer = require('./llm-server');
 
-// app.get('/start-llm-check', async (req, res) => {
-//   if (llmCheckInterval) {
-//     return res.status(200).json({ message: 'LLM check already running.' });
-//   }
+// Эндпоинт для запуска LLM-проверки
+app.get('/api/llm-check', async (req, res) => {
+  try {
+    console.log('[LLM-CHECK] LLM check request received');
+    console.log('[LLM-CHECK] Timestamp:', new Date().toISOString());
+    console.log('[LLM-CHECK] Query params:', req.query);
+    
+    const fileName = req.query.fileName;
+    if (!fileName) {
+      console.error('[LLM-CHECK] ERROR: fileName is required');
+      return res.status(400).json({ error: 'fileName is required.' });
+    }
+    
+    console.log('[LLM-CHECK] Starting LLM check for file:', fileName);
+    const result = await llmServer.startCheck(fileName);
+    
+    console.log('[LLM-CHECK] LLM check started successfully');
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[LLM-CHECK] CRITICAL ERROR starting LLM check:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
 
-//   const fileName = req.query.fileName; // Получаем fileName из запроса
-//   if (!fileName) {
-//     return res.status(400).json({ error: 'fileName is required.' });
-//   }
+// Эндпоинт для остановки LLM-проверки
+app.get('/api/llm-stop', (req, res) => {
+  try {
+    console.log('[LLM-STOP] LLM stop request received');
+    console.log('[LLM-STOP] Timestamp:', new Date().toISOString());
+    
+    const result = llmServer.stopCheck();
+    
+    console.log('[LLM-STOP] LLM check stopped successfully');
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[LLM-STOP] ERROR stopping LLM check:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
 
-//   llmCheckInterval = setInterval(async () => {
-//     try {
-//       const vocabularyData = await getAllVocabularyFilled(fileName);
-//       const dangerousElements = [];
+// Эндпоинт для получения результатов LLM
+app.get('/api/llm-results', (req, res) => {
+  try {
+    console.log('[LLM-RESULTS] LLM results request received');
+    console.log('[LLM-RESULTS] Timestamp:', new Date().toISOString());
+    console.log('[LLM-RESULTS] Query params:', req.query);
+    
+    const fileName = req.query.fileName;
+    if (!fileName) {
+      console.error('[LLM-RESULTS] ERROR: fileName is required');
+      return res.status(400).json({ error: 'fileName is required.' });
+    }
+    
+    console.log('[LLM-RESULTS] Getting results for file:', fileName);
+    const result = llmServer.getResult(fileName);
+    
+    if (result.success && result.result) {
+      console.log('[LLM-RESULTS] Results found and sent to client');
+    } else {
+      console.log('[LLM-RESULTS] No results available');
+    }
+    
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('[LLM-RESULTS] ERROR getting LLM results:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
 
-//       if (vocabularyData && vocabularyData.length > 0) {
-//         for (const item of vocabularyData) {
-//           if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-//             dangerousElements.push(item.globalid);
-//           }
-//         }
-//       }
+// Совместимость со старыми эндпоинтами
+app.get('/start-llm-check', async (req, res) => {
+  console.log('[LEGACY] Redirecting /start-llm-check to /api/llm-check');
+  req.url = '/api/llm-check';
+  return app._router.handle(req, res);
+});
 
-//       if (dangerousElements.length > 0) {
-//         const prompt = `Опасные элементы с globalid: ${dangerousElements.join(', ')}. Проанализируйте их.`;
-//         const llmResponse = await chatWithModel(prompt);
-//         console.log('LLM Response for dangerous elements:', llmResponse);
-//       }
-//     } catch (error) {
-//       console.error('Error during LLM check:', error);
-//     }
-//   }, 30000); // Проверяем каждые 30 секунд
+app.get('/stop-llm-check', (req, res) => {
+  console.log('[LEGACY] Redirecting /stop-llm-check to /api/llm-stop');
+  req.url = '/api/llm-stop';
+  return app._router.handle(req, res);
+});
 
-//   res.status(200).json({ message: 'LLM check started.' });
-// });
-
-// app.get('/stop-llm-check', (req, res) => {
-//   if (llmCheckInterval) {
-//     clearInterval(llmCheckInterval);
-//     llmCheckInterval = null;
-//     res.status(200).json({ message: 'LLM check stopped.' });
-//   } else {
-//     res.status(200).json({ message: 'LLM check not running.' });
-//   }
-// });
+app.get('/get-llm-result', (req, res) => {
+  console.log('[LEGACY] Redirecting /get-llm-result to /api/llm-results');
+  req.url = '/api/llm-results';
+  return app._router.handle(req, res);
+});
 
 
 
@@ -459,11 +502,16 @@ app.post('/add-command', async (req, res) => {
     
     const { command, fileName, globalids } = req.body;
     
-    // Проверяем, что команда является валидным кодом
+    // Парсим команду и параметры (например: "RUS_PersonResponsibleForOperation IFCLIGHTFIXTURE")
+    const commandParts = command.trim().split(/\s+/);
+    const baseCommand = commandParts[0];
+    const commandParams = commandParts.slice(1);
+    
+    // Проверяем, что базовая команда является валидным кодом
     const availableCodes = getAvailableCodes();
-    if (!availableCodes.includes(command)) {
+    if (!availableCodes.includes(baseCommand)) {
       return res.status(400).json({ 
-        error: `Неизвестная команда: ${command}`,
+        error: `Неизвестная команда: ${baseCommand}`,
         availableCodes: availableCodes,
         descriptions: availableCodes.reduce((acc, code) => {
           acc[code] = getCodeDescription(code);
@@ -472,7 +520,60 @@ app.post('/add-command', async (req, res) => {
       });
     }
     
-    console.log(`Выполнение команды ${command} (${getCodeDescription(command)}) для модели ${fileName}`);
+    console.log(`Выполнение команды ${baseCommand} (${getCodeDescription(baseCommand)}) для модели ${fileName}`);
+    if (commandParams.length > 0) {
+      console.log(`Параметры команды: ${commandParams.join(', ')}`);
+    }
+    
+    // Специальная обработка для RUS_PersonResponsibleForOperation с IFC типом
+    if (baseCommand === 'RUS_PersonResponsibleForOperation' && commandParams.length > 0) {
+      const ifcType = commandParams[0];
+      console.log(`Обработка IFC типа: ${ifcType}`);
+      
+      try {
+        // Подключаемся к базе данных
+        await connectToDatabase(fileName);
+        
+        // Убеждаемся, что колонка существует
+        const { ensureColumnExists } = require('./db');
+        await ensureColumnExists(baseCommand, 'TEXT');
+        
+        // Вызываем генератор с IFC типом
+        const generationResults = await generateDataByCode(baseCommand, null, ifcType);
+        
+        // Обновляем базу данных с полученными результатами
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+        
+        for (const result of generationResults) {
+          try {
+            const updateData = {};
+            updateData[baseCommand] = result.data;
+            await updateElement(fileName, result.globalid, updateData);
+            successCount++;
+          } catch (error) {
+            console.error(`Ошибка при обновлении элемента ${result.globalid}:`, error);
+            errorCount++;
+            errors.push(`${result.globalid}: ${error.message}`);
+          }
+        }
+        
+        return res.status(200).json({
+          message: `Команда ${baseCommand} выполнена для типа ${ifcType}`,
+          totalProcessed: generationResults.length,
+          successCount: successCount,
+          errorCount: errorCount,
+          errors: errors.slice(0, 10) // Показываем только первые 10 ошибок
+        });
+        
+      } catch (error) {
+        console.error(`Ошибка при выполнении команды ${baseCommand} для типа ${ifcType}:`, error);
+        return res.status(500).json({ 
+          error: `Ошибка при выполнении команды: ${error.message}` 
+        });
+      }
+    }
     
     // Если не указаны конкретные globalids, используем массовое обновление
     let targetGlobalIds = globalids;
@@ -489,16 +590,16 @@ app.post('/add-command', async (req, res) => {
     
     try {
       const { ensureColumnExists } = require('./db');
-      await ensureColumnExists(command, 'TEXT');
+      await ensureColumnExists(baseCommand, 'TEXT');
     } catch (error) {
-      console.error(`Ошибка при создании колонки ${command}:`, error);
+      console.error(`Ошибка при создании колонки ${baseCommand}:`, error);
     }
     
     // Применяем команду к конкретным элементам
     for (const globalid of targetGlobalIds) {
       try {
         // Добавляем await, так как generateDataByCode может быть асинхронной функцией
-        const generatedValue = await generateDataByCode(command, decodeURIComponent(globalid));
+        const generatedValue = await generateDataByCode(baseCommand, decodeURIComponent(globalid), ...commandParams);
         // console.log('Сгенерированное значение:', generatedValue);
         console.log('Тип значения:', typeof generatedValue);
         // // Убедимся, что значение - строка
@@ -506,7 +607,7 @@ app.post('/add-command', async (req, res) => {
         console.log('Преобразованное значение:', stringValue);
         
         const updateData = {};
-        updateData[command] = stringValue;
+        updateData[baseCommand] = stringValue;
         console.log('Данные для обновления:', updateData);
         
         // Обновляем элемент в базе данных
@@ -619,6 +720,212 @@ app.post('/generate-person-responsible-llm', async (req, res) => {
       error: 'Internal server error',
       details: error.message
     });
+  }
+});
+
+// Эндпоинт для запуска LLM проверки
+// Функция для получения данных vocabulary
+async function getVocabularyData(fileName) {
+  try {
+    console.log('[VOCABULARY-DATA] Starting vocabulary data retrieval for file:', fileName);
+    console.log('[VOCABULARY-DATA] Timestamp:', new Date().toISOString());
+    
+    const vocabularyData = await getAllVocabularyFilled(fileName);
+    
+    if (!vocabularyData) {
+      console.log('[VOCABULARY-DATA] WARNING: No vocabulary data returned from getAllVocabularyFilled');
+      return null;
+    }
+    
+    console.log('[VOCABULARY-DATA] Vocabulary data retrieved successfully');
+    console.log('[VOCABULARY-DATA] Total records:', vocabularyData.length);
+    
+    // Логируем статистику по vocabulary значениям
+    let highVocabularyCount = 0;
+    let totalVocabularySum = 0;
+    let validVocabularyCount = 0;
+    
+    vocabularyData.forEach((item, index) => {
+      if (item.vocabulary) {
+        const vocabValue = parseInt(item.vocabulary);
+        if (!isNaN(vocabValue)) {
+          validVocabularyCount++;
+          totalVocabularySum += vocabValue;
+          if (vocabValue > 900) {
+            highVocabularyCount++;
+            console.log(`[VOCABULARY-DATA] High vocabulary element found: Index=${index}, GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${vocabValue}`);
+          }
+        }
+      }
+    });
+    
+    const averageVocabulary = validVocabularyCount > 0 ? (totalVocabularySum / validVocabularyCount).toFixed(2) : 0;
+    
+    console.log('[VOCABULARY-DATA] Statistics:');
+    console.log(`[VOCABULARY-DATA]   - Total records: ${vocabularyData.length}`);
+    console.log(`[VOCABULARY-DATA]   - Records with valid vocabulary: ${validVocabularyCount}`);
+    console.log(`[VOCABULARY-DATA]   - Records with vocabulary > 900: ${highVocabularyCount}`);
+    console.log(`[VOCABULARY-DATA]   - Average vocabulary value: ${averageVocabulary}`);
+    
+    return vocabularyData;
+  } catch (error) {
+    console.error('[VOCABULARY-DATA] CRITICAL ERROR getting vocabulary data:', error);
+    console.error('[VOCABULARY-DATA] Error stack:', error.stack);
+    return null;
+  }
+}
+
+app.post('/api/llm-check', async (req, res) => {
+  try {
+    const { fileName } = req.body;
+    
+    if (!fileName) {
+      console.log('[LLM-CHECK] ERROR: fileName parameter is missing');
+      return res.status(400).json({ success: false, error: 'fileName is required' });
+    }
+    
+    console.log('[LLM-CHECK] Starting LLM check for file:', fileName);
+    console.log('[LLM-CHECK] Timestamp:', new Date().toISOString());
+    
+    // Получаем данные vocabulary для файла
+    console.log('[LLM-CHECK] Fetching vocabulary data for file:', fileName);
+    const vocabularyData = await getVocabularyData(fileName);
+    
+    if (!vocabularyData || vocabularyData.length === 0) {
+      console.log('[LLM-CHECK] WARNING: No vocabulary data found for file:', fileName);
+      return res.json({ success: true, message: 'No vocabulary data found' });
+    }
+    
+    console.log('[LLM-CHECK] Vocabulary data loaded. Total records:', vocabularyData.length);
+    
+    // Ищем элементы с vocabulary > 900
+    console.log('[LLM-CHECK] Searching for dangerous elements (vocabulary > 900)...');
+    const dangerousElements = [];
+    let checkedCount = 0;
+    
+    for (const item of vocabularyData) {
+      checkedCount++;
+      if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+        dangerousElements.push(item.globalid);
+        console.log(`[LLM-CHECK] Found dangerous element: GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${item.vocabulary}`);
+      }
+    }
+    
+    console.log(`[LLM-CHECK] Analysis complete. Checked ${checkedCount} elements, found ${dangerousElements.length} dangerous elements`);
+    
+    if (dangerousElements.length === 0) {
+      console.log('[LLM-CHECK] No dangerous elements found. Analysis complete.');
+      return res.json({ success: true, message: 'No dangerous elements found' });
+    }
+    
+    console.log('[LLM-CHECK] Starting background LLM analysis...');
+    
+    // Запускаем LLM анализ в фоновом режиме
+    setTimeout(async () => {
+      try {
+        console.log('[LLM-BACKGROUND] Background LLM analysis started for', fileName);
+        console.log('[LLM-BACKGROUND] Processing', dangerousElements.length, 'dangerous elements');
+        
+        if (dangerousElements.length > 0) {
+          // Собираем данные об опасных элементах
+          console.log('[LLM-BACKGROUND] Collecting detailed data for dangerous elements...');
+          const dangerousElementsData = [];
+          
+          for (const item of vocabularyData) {
+            if (item.vocabulary && parseInt(item.vocabulary) > 900) {
+              const elementData = {
+                globalid: item.globalid,
+                expressID: item.expressID,
+                vocabulary: item.vocabulary
+              };
+              dangerousElementsData.push(elementData);
+              console.log(`[LLM-BACKGROUND] Collected element data:`, elementData);
+            }
+          }
+          
+          console.log('[LLM-BACKGROUND] Total dangerous elements data collected:', dangerousElementsData.length);
+          
+          // Для тестирования без LLM - просто формируем результат
+          console.log('[LLM-BACKGROUND] Generating test result (LLM integration disabled)...');
+          // const testResult = {
+          //   message: `Найдены элементы с высоким значением vocabulary (>900):\n${dangerousElements.map(id => `- GlobalID: ${id}`).join('\n')}\n\nВсего элементов: ${dangerousElements.length}`,
+          //   dangerousElements: dangerousElementsData
+          // };
+          
+          // Раскомментируйте следующие строки для работы с реальным LLM:
+          console.log('[LLM-BACKGROUND] Preparing LLM prompt...');
+          const prompt = `Проанализируй элементы с globalid: ${dangerousElements.join(', ')}. Получи информацию о каждом элементе и связанных пространствах.`;
+          console.log('[LLM-BACKGROUND] LLM prompt:', prompt);
+          console.log('[LLM-BACKGROUND] Calling LLM service...');
+          const llmResponse = await chatWithModel(prompt);
+          console.log('[LLM-BACKGROUND] LLM response received:', llmResponse);
+          llmResults[fileName] = {
+            message: llmResponse,
+            dangerousElements: dangerousElementsData
+          };
+          
+          // Для тестирования сохраняем тестовый результат
+          // llmResults[fileName] = llmResponse;
+          console.log('[LLM-BACKGROUND] Result stored for file:', fileName);
+          console.log('[LLM-BACKGROUND] Stored result:', JSON.stringify(llmResponse, null, 2));
+          console.log('[LLM-BACKGROUND] Analysis complete. Results available for retrieval.');
+        }
+      } catch (error) {
+        console.error('[LLM-BACKGROUND] ERROR during background LLM analysis:', error);
+        console.error('[LLM-BACKGROUND] Error stack:', error.stack);
+      }
+    }, 1000);
+    
+    console.log('[LLM-CHECK] Background analysis scheduled. Returning success response.');
+    res.json({ success: true, message: 'LLM check started' });
+  } catch (error) {
+    console.error('[LLM-CHECK] CRITICAL ERROR in LLM check endpoint:', error);
+    console.error('[LLM-CHECK] Error stack:', error.stack);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Эндпоинт для получения результатов LLM
+app.get('/api/llm-results', (req, res) => {
+  try {
+    console.log('[LLM-RESULTS] Client requesting LLM results');
+    console.log('[LLM-RESULTS] Timestamp:', new Date().toISOString());
+    console.log('[LLM-RESULTS] Available result keys:', Object.keys(llmResults));
+    
+    if (Object.keys(llmResults).length === 0) {
+      console.log('[LLM-RESULTS] No results available yet');
+      return res.json({ success: true, results: {} });
+    }
+    
+    // Логируем детали каждого результата
+    for (const [fileName, result] of Object.entries(llmResults)) {
+      console.log(`[LLM-RESULTS] Result for file "${fileName}":`);
+      if (result.dangerousElements) {
+        console.log(`[LLM-RESULTS]   - Dangerous elements count: ${result.dangerousElements.length}`);
+        result.dangerousElements.forEach((element, index) => {
+          console.log(`[LLM-RESULTS]   - Element ${index + 1}: GlobalID=${element.globalid}, ExpressID=${element.expressID}, Vocabulary=${element.vocabulary}`);
+        });
+      }
+      if (result.message) {
+        console.log(`[LLM-RESULTS]   - Message length: ${result.message.length} characters`);
+      }
+    }
+    
+    console.log('[LLM-RESULTS] Sending results to client');
+    res.json({ success: true, results: llmResults });
+    
+    // Очищаем результаты после отправки
+    console.log('[LLM-RESULTS] Clearing results after sending to client');
+    const clearedKeys = Object.keys(llmResults);
+    for (const key in llmResults) {
+      delete llmResults[key];
+    }
+    console.log('[LLM-RESULTS] Cleared result keys:', clearedKeys);
+    console.log('[LLM-RESULTS] Results successfully sent and cleared');
+  } catch (error) {
+    console.error('[LLM-RESULTS] CRITICAL ERROR getting LLM results:', error);
+    console.error('[LLM-RESULTS] Error stack:', error.stack);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -15,7 +15,7 @@
       <button class="custom-btn" id="btnAllKsi">Заполнить КСИ для всех элементов</button>
          <button class="custom-btn" id="btnOnKsi">Включить КСИ</button>
          <button class="custom-btn" id="btnOffKsi">Отключить КСИ</button>
-         <!-- <button class="custom-btn" id="btnLLM">LLM</button> -->
+         <button class="custom-btn" id="btnLLM">LLM</button>
     </div>
 
     <div id="progressOverlay" class="progress-overlay">
@@ -72,6 +72,17 @@
         </div>
       </form>
     </dialog>
+
+    <!-- LLM Log Window - Top Right Corner -->
+    <div class="llm-log-window" id="llmLogWindow" style="display: none;">
+      <div class="llm-log-header">
+        <h4>LLM Система - Логи и Ответы</h4>
+        <button class="llm-log-close" id="llmLogClose">×</button>
+      </div>
+      <div class="llm-log-content">
+        <div class="llm-log-output" id="llmLogOutput"></div>
+      </div>
+    </div>
 
     <div class="info-widgets">
       <div>

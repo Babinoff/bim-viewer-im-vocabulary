@@ -175,7 +175,66 @@ const dataGenerators = {
     return code;
   },
   
-  'RUS_PersonResponsibleForOperation': async (globalId) => {
+  'RUS_PersonResponsibleForOperation': async (globalId, ifcType = null) => {
+    // Если передан IFC тип, получаем список globalid для этого типа
+    if (ifcType && !globalId) {
+      try {
+        console.log(`Получаем список элементов для типа: ${ifcType}`);
+        
+        // Используем прямой вызов MCP через глобальную функцию
+         // Для этого нужно будет использовать существующий механизм вызова MCP
+         // Пока используем заглушку, которая будет заменена на реальный вызов
+         
+         // Временная заглушка - в реальности здесь должен быть вызов MCP
+         const entitiesResponse = JSON.stringify({
+           entities: [],
+           total_count: 0
+         });
+         
+         console.log('ВНИМАНИЕ: Используется заглушка для MCP. Необходимо реализовать вызов list_ifc_entities');
+        
+        const entitiesData = JSON.parse(entitiesResponse);
+        const globalIds = entitiesData.entities.map(entity => entity.id);
+        
+        console.log(`Найдено ${globalIds.length} элементов типа ${ifcType}`);
+        
+        // Обрабатываем каждый элемент
+        const results = [];
+        for (let i = 0; i < globalIds.length; i++) {
+          const currentGlobalId = globalIds[i];
+          console.log(`Обрабатываем элемент ${i + 1}/${globalIds.length}: ${currentGlobalId}`);
+          
+          try {
+            // Рекурсивно вызываем эту же функцию для каждого globalId
+            const generatedData = await dataGenerators['RUS_PersonResponsibleForOperation'](currentGlobalId);
+            results.push({
+              globalid: currentGlobalId,
+              data: generatedData
+            });
+            
+            // Небольшая задержка между запросами
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+          } catch (error) {
+            console.error(`Ошибка при обработке элемента ${currentGlobalId}:`, error);
+            // Fallback к случайной генерации
+            const fallbackData = await dataGenerators['RUS_PersonResponsibleForOperation']();
+            results.push({
+              globalid: currentGlobalId,
+              data: fallbackData
+            });
+          }
+        }
+        
+        console.log(`Генерация завершена для типа ${ifcType}!`);
+        return results;
+        
+      } catch (error) {
+        console.error(`Ошибка при получении элементов типа ${ifcType}:`, error);
+        throw error;
+      }
+    }
+    
     // Словарь должностей с соответствующими фамилиями и инициалами
     const responsiblePersons = {
       'Не требуется': [""],
@@ -239,10 +298,14 @@ const dataGenerators = {
 
           Из информации возьме "type" убрав в заголовке ifc получишь тип объекта.
           Из информации возьме "name" наименование объекта.
-          Основываясь на типе и наименовании, определи инжинерное ли оборудование. 
-          Если тип IfcFlowTerminal то это точно инжинерное оборудование.
-          Если тип IfcFlowSegment то это точно инжинерное оборудование.
-          Если тип IfcFlowFitting то это точно инжинерное оборудование.
+          Основываясь на типе и наименовании, определи оборудование ли это. 
+
+          Например:
+          IfcFlowTerminal - оборудование
+          IfcFlowFitting - оборудование
+          IfcFlowSegment - оборудование
+          если содержит IfcFlow - оборудование
+
           Если это элемент инжинерного оборудования, то на основании данных выбери наиболее подходящую должность ответственного лица из следующего списка:
           
           ${positionsText}
@@ -255,7 +318,6 @@ const dataGenerators = {
         let llmResponse = '';
         await streamChatCompletion(
           prompt,
-          'google/gemma-2-9b',
           (chunk) => {
             llmResponse += chunk;
           }

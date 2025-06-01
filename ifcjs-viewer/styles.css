@@ -449,3 +449,126 @@ ul, #myUL {
     width: 16px;
     height: 16px;
 }
+
+/* LLM Log Window Styles */
+.llm-log-window {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 33vw;
+    height: 33vh;
+    min-width: 400px;
+    min-height: 300px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    resize: both;
+    overflow: hidden;
+}
+
+.llm-log-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+.llm-log-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.llm-log-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.llm-log-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.llm-log-content {
+    flex: 1;
+    padding: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.llm-log-output {
+    flex: 1;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 12px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.llm-log-entry {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border-left: 3px solid #007bff;
+}
+
+.llm-log-entry.client {
+    background-color: #e3f2fd;
+    border-left-color: #2196f3;
+}
+
+.llm-log-entry.server {
+    background-color: #f3e5f5;
+    border-left-color: #9c27b0;
+}
+
+.llm-log-entry.llm-response {
+    background-color: #e8f5e8;
+    border-left-color: #4caf50;
+}
+
+.llm-log-entry.error {
+    background-color: #ffebee;
+    border-left-color: #f44336;
+}
+
+.llm-log-timestamp {
+    color: #666;
+    font-size: 10px;
+    margin-right: 8px;
+}
+
+.llm-log-source {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.llm-log-message {
+    color: #333;
+}

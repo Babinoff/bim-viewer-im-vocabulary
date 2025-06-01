@@ -32,9 +32,6 @@ async function testLLMGeneration() {
     
     console.log('\n=== Начинаем тестирование ===');
     
-    // Импортируем генераторы
-    const { dataGenerators, generateDataByCode } = require('./data-generators');
-    
     for (let i = 0; i < testGlobalIds.length; i++) {
       const globalId = testGlobalIds[i]; // getAllGlobalIds возвращает массив строк
       
@@ -47,15 +44,6 @@ async function testLLMGeneration() {
       console.log(`\nТест ${i + 1}/${testGlobalIds.length}: ${globalId}`);
       
       try {
-        // Тестируем генератор с LLM (прямой вызов)
-        // console.log('  Запрос к LLM (прямой вызов)...');
-        // const result1 = await dataGenerators['RUS_PersonResponsibleForOperation'](globalId);
-        // console.log(`  Результат (прямой): ${result1}`);
-        
-        // Тестируем через generateDataByCode
-        // console.log('  Запрос к LLM (через generateDataByCode)...');
-        // const result2 = await generateDataByCode('RUS_PersonResponsibleForOperation', globalId);
-        // console.log(`  Результат (через функцию): ${result2}`);
         const responsiblePersons = {
           'Главный инженер': [
             'Иванов А.В.', 'Петров С.М.', 'Козлов В.И.', 'Морозов Д.А.'
@@ -127,7 +115,6 @@ async function testLLMGeneration() {
         let streamResult = '';
         await streamChatCompletion(
           prompt,
-          'google/gemma-2-9b',
           (chunk) => {
             streamResult += chunk;
             process.stdout.write(chunk); // Выводим каждый фрагмент в консоль
@@ -158,7 +145,6 @@ async function testLLMStream() {
   console.log("statrt testLLMStream"); 
   await streamChatCompletion(
     'ping',
-    'google/gemma-2-9b',
     (chunk) => {
         console.log(chunk); // Выводит каждый фрагмент в консоль
     }

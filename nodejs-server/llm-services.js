@@ -2,12 +2,31 @@ require('dotenv').config();
 
 const API_KEY = process.env.WEBUI_TOKEN;
 const BASE_URL = 'http://localhost:9090';
+const _model = 'google/gemma-2-9b';
 
 ifcAssist = `Ты специализированный помощник для работы с доступными инструментами.
+
                 Твои инструменты это: - доступ через bonsai к информации об IFC
+                
                 Основная задача давать ответ только с использованием инструмента. 
-                Если задачу не возможно решить используя доступные инструменты, необходимо отобразить ошибки которые помешали решить задачу.
+
                 Важно давать только конкретные ответы, полученные от инструмента, без комментариев и пояснений.
+                
+                Список type инжинерного оборудования: 
+                IfcAirTerminal, IfcAirTerminalBox, IfcAirToAirHeatRecovery, IfcAlarm, 
+                IfcAudioVisualAppliance, IfcBoiler, IfcBurner, IfcChiller, IfcCoil, 
+                IfcCommunicationsAppliance, IfcCompressor, IfcCondenser, IfcCooledBeam, 
+                IfcCoolingTower, IfcDamper, IfcDistributionChamberElement, IfcDistributionControlElement, 
+                IfcDistributionFlowElement, IfcDuctFitting, IfcDuctSegment, IfcDuctSilencer, IfcElectricAppliance, 
+                IfcElectricDistributionBoard, IfcElectricFlowStorageDevice, IfcElectricGenerator, IfcElectricMotor, 
+                IfcElectricTimeControl, IfcEnergyConversionDevice, IfcEvaporativeCooler, IfcEvaporator, IfcFan, 
+                IfcFilter, IfcFireSuppressionTerminal, IfcFlowController, IfcFlowFitting, IfcFlowInstrument, 
+                IfcFlowMeter, IfcFlowMovingDevice, IfcFlowSegment, IfcFlowStorageDevice, IfcFlowTerminal, 
+                IfcFlowTreatmentDevice, IfcGasTerminal, IfcHeatExchanger, IfcHumidifier, IfcInterceptor, 
+                IfcJunctionBox, IfcLamp, IfcLightFixture, IfcMedicalDevice, IfcMotorConnection, IfcOutlet, 
+                IfcPipeFitting, IfcPipeSegment, IfcProtectiveDevice, IfcPump, IfcSanitaryTerminal, IfcSensor, 
+                IfcShadingDevice, IfcSolarDevice, IfcSpaceHeater, IfcStackTerminal, IfcSwitchingDevice, IfcTank, 
+                IfcTransformer, IfcTubeBundle, IfcUnitaryEquipment, IfcValve, IfcVibrationIsolator, IfcWasteTerminal
                 `
 
 async function chatWithModel(promt) {
@@ -48,7 +67,7 @@ async function chatWithModel(promt) {
     }
 }
 
-async function streamChatCompletion(message, model = 'google/gemma-2-9b', onChunk) {
+async function streamChatCompletion(message, onChunk) {
     try {
         const response = await fetch(`${BASE_URL}/api/chat/completions`, {
             method: 'POST',
@@ -57,17 +76,17 @@ async function streamChatCompletion(message, model = 'google/gemma-2-9b', onChun
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: model,
+                model: _model,
                 messages: [
                     {
                         role: 'user',
                         content: message
                     }
                 ],
+                
                 stream: true
             })
         });
-        // console.log("streamChatCompletion llm response", response);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -92,10 +111,11 @@ async function streamChatCompletion(message, model = 'google/gemma-2-9b', onChun
                     try {
                         const parsed = JSON.parse(data);
                         const content = parsed.choices[0]?.delta?.content;
+                        console.log("streamChatCompletion onChunk", onChunk);
                         if (content && onChunk) {
                             onChunk(content);
                         }
-                    } catch (e) {
+                    } catch (error) {
                         console.error('Error in streaming chat:', error);
                         // Игнорируем ошибки парсинга
                     }
