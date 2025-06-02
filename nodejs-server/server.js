@@ -10,13 +10,11 @@ const {
   getElementByGlobalId, 
   updateElement,
   getAllKsiExpressID,
-  getAllVocabularyFilled,
+  // getAllVocabularyFilled,
   getAllGlobalIds,
   updateAllElementsWithValue
   } = require('./db');
-const { 
-  chatWithModel
-  } = require('./llm-services');
+
 const { 
   generateDataByCode,
   getCodeDescription,
@@ -25,6 +23,8 @@ const {
   } = require('./data-generators');
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
+
+const { chatWithModel, streamChatCompletion } = require('./llm-services');
 
 const app = express();
 const port = 4000;
@@ -224,26 +224,26 @@ app.get('/get-vocabulary', async (req, res) => {
   }
 });
 
-app.get('/get-all-vocabulary-filled', async (req, res) => {
-  try {
-    console.log("/get-all-vocabulary-filled req.query", req.query);
-    if (!req.query || !req.query.fileName) {
-      const errorMessage = 'Invalid data format. Required fields: fileName';
-      console.error("/get-all-vocabulary-filled", errorMessage);
-      return res.status(400).json({
-        error: errorMessage
-      });
-    }
+// app.get('/get-all-vocabulary-filled', async (req, res) => {
+//   try {
+//     console.log("/get-all-vocabulary-filled req.query", req.query);
+//     if (!req.query || !req.query.fileName) {
+//       const errorMessage = 'Invalid data format. Required fields: fileName';
+//       console.error("/get-all-vocabulary-filled", errorMessage);
+//       return res.status(400).json({
+//         error: errorMessage
+//       });
+//     }
 
-    let allFilledVocabulary = await getAllVocabularyFilled(req.query.fileName);
-    console.log("[0] filled vocabulary:", allFilledVocabulary[0]);
+//     let allFilledVocabulary = await getAllVocabularyFilled(req.query.fileName);
+//     console.log("[0] filled vocabulary:", allFilledVocabulary[0]);
 
-    res.json(allFilledVocabulary);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+//     res.json(allFilledVocabulary);
+//   } catch (error) {
+//     console.error('Error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
 
 app.get('/get-ksi-from-ai', async (req, res) => {
   try {
@@ -401,9 +401,7 @@ const llmServer = require('./llm-server');
 // Эндпоинт для запуска LLM-проверки
 app.get('/api/llm-check', async (req, res) => {
   try {
-    console.log('[LLM-CHECK] LLM check request received');
-    console.log('[LLM-CHECK] Timestamp:', new Date().toISOString());
-    console.log('[LLM-CHECK] Query params:', req.query);
+    console.log('[LLM-CHECK] LLM check request received', new Date().toISOString(), req.query);
     
     const fileName = req.query.fileName;
     if (!fileName) {
@@ -467,27 +465,6 @@ app.get('/api/llm-results', (req, res) => {
   }
 });
 
-// Совместимость со старыми эндпоинтами
-app.get('/start-llm-check', async (req, res) => {
-  console.log('[LEGACY] Redirecting /start-llm-check to /api/llm-check');
-  req.url = '/api/llm-check';
-  return app._router.handle(req, res);
-});
-
-app.get('/stop-llm-check', (req, res) => {
-  console.log('[LEGACY] Redirecting /stop-llm-check to /api/llm-stop');
-  req.url = '/api/llm-stop';
-  return app._router.handle(req, res);
-});
-
-app.get('/get-llm-result', (req, res) => {
-  console.log('[LEGACY] Redirecting /get-llm-result to /api/llm-results');
-  req.url = '/api/llm-results';
-  return app._router.handle(req, res);
-});
-
-
-
 // Endpoint для выполнения команд генерации данных
 app.post('/add-command', async (req, res) => {
   try {
@@ -510,14 +487,25 @@ app.post('/add-command', async (req, res) => {
     // Проверяем, что базовая команда является валидным кодом
     const availableCodes = getAvailableCodes();
     if (!availableCodes.includes(baseCommand)) {
-      return res.status(400).json({ 
-        error: `Неизвестная команда: ${baseCommand}`,
-        availableCodes: availableCodes,
-        descriptions: availableCodes.reduce((acc, code) => {
-          acc[code] = getCodeDescription(code);
-          return acc;
-        }, {})
+      await streamChatCompletion(
+        baseCommand,
+        (chunk) => {
+          llmResponse += chunk;
+        }
+      );
+      console.log('LLM Response:', llmResponse); 
+      return res.status(200).json({ 
+        llmResponse: llmResponse,
       });
+      // Добавлено для отладки
+      // return res.status(400).json({ 
+      //   error: `Неизвестная команда: ${baseCommand}`,
+      //   availableCodes: availableCodes,
+      //   descriptions: availableCodes.reduce((acc, code) => {
+      //     acc[code] = getCodeDescription(code);
+      //     return acc;
+      //   }, {})
+      // });
     }
     
     console.log(`Выполнение команды ${baseCommand} (${getCodeDescription(baseCommand)}) для модели ${fileName}`);
@@ -723,57 +711,6 @@ app.post('/generate-person-responsible-llm', async (req, res) => {
   }
 });
 
-// Эндпоинт для запуска LLM проверки
-// Функция для получения данных vocabulary
-async function getVocabularyData(fileName) {
-  try {
-    console.log('[VOCABULARY-DATA] Starting vocabulary data retrieval for file:', fileName);
-    console.log('[VOCABULARY-DATA] Timestamp:', new Date().toISOString());
-    
-    const vocabularyData = await getAllVocabularyFilled(fileName);
-    
-    if (!vocabularyData) {
-      console.log('[VOCABULARY-DATA] WARNING: No vocabulary data returned from getAllVocabularyFilled');
-      return null;
-    }
-    
-    console.log('[VOCABULARY-DATA] Vocabulary data retrieved successfully');
-    console.log('[VOCABULARY-DATA] Total records:', vocabularyData.length);
-    
-    // Логируем статистику по vocabulary значениям
-    let highVocabularyCount = 0;
-    let totalVocabularySum = 0;
-    let validVocabularyCount = 0;
-    
-    vocabularyData.forEach((item, index) => {
-      if (item.vocabulary) {
-        const vocabValue = parseInt(item.vocabulary);
-        if (!isNaN(vocabValue)) {
-          validVocabularyCount++;
-          totalVocabularySum += vocabValue;
-          if (vocabValue > 900) {
-            highVocabularyCount++;
-            console.log(`[VOCABULARY-DATA] High vocabulary element found: Index=${index}, GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${vocabValue}`);
-          }
-        }
-      }
-    });
-    
-    const averageVocabulary = validVocabularyCount > 0 ? (totalVocabularySum / validVocabularyCount).toFixed(2) : 0;
-    
-    console.log('[VOCABULARY-DATA] Statistics:');
-    console.log(`[VOCABULARY-DATA]   - Total records: ${vocabularyData.length}`);
-    console.log(`[VOCABULARY-DATA]   - Records with valid vocabulary: ${validVocabularyCount}`);
-    console.log(`[VOCABULARY-DATA]   - Records with vocabulary > 900: ${highVocabularyCount}`);
-    console.log(`[VOCABULARY-DATA]   - Average vocabulary value: ${averageVocabulary}`);
-    
-    return vocabularyData;
-  } catch (error) {
-    console.error('[VOCABULARY-DATA] CRITICAL ERROR getting vocabulary data:', error);
-    console.error('[VOCABULARY-DATA] Error stack:', error.stack);
-    return null;
-  }
-}
 
 app.post('/api/llm-check', async (req, res) => {
   try {

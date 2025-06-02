@@ -373,9 +373,11 @@ async function getAllKsiExpressID(filename) {
 }
 }
 
-async function getAllVocabularyFilled(filename) {
+async function getAllVocabularyFilled(filename, parameterName, maxValue) {
   try {
     console.log('[DB-VOCABULARY] Starting getAllVocabularyFilled for file:', filename);
+    console.log('[DB-VOCABULARY] Parameter name:', parameterName);
+    console.log('[DB-VOCABULARY] Max value:', maxValue);
     console.log('[DB-VOCABULARY] Timestamp:', new Date().toISOString());
     
     if (!_db) {
@@ -384,30 +386,33 @@ async function getAllVocabularyFilled(filename) {
 
     console.log('[DB-VOCABULARY] Database connection established');
 
-    // Проверяем существование колонки
+    // Проверяем существование указанной колонки
     const columnExists = await new Promise((resolve) => {
         _db.get(
-            `SELECT name FROM pragma_table_info('elements') WHERE name='vocabulary'`,
+            `SELECT name FROM pragma_table_info('elements') WHERE name=?`,
+            [parameterName],
             (err, row) => {
-                console.log('[DB-VOCABULARY] Column existence check result:', !!row);
+                console.log('[DB-VOCABULARY] Column existence check result for', parameterName, ':', !!row);
                 resolve(!!row);
             }
         );
     });
 
     if (!columnExists) {
-        console.error('[DB-VOCABULARY] CRITICAL ERROR: Column vocabulary does not exist');
-        throw new Error('Колонка vocabulary не существует в таблице elements');
+        console.error('[DB-VOCABULARY] CRITICAL ERROR: Column', parameterName, 'does not exist');
+        throw new Error(`Колонка ${parameterName} не существует в таблице elements`);
     }
     
-    const query = `SELECT * FROM elements WHERE vocabulary IS NOT NULL AND vocabulary != ''`;
+    // SQL запрос для поиска строк где значение параметра больше заданного
+    const query = `SELECT * FROM elements WHERE ${parameterName} IS NOT NULL AND CAST(${parameterName} AS REAL) > ?`;
     console.log('[DB-VOCABULARY] Executing query:', query);
+    console.log('[DB-VOCABULARY] Query parameters:', [maxValue]);
     
     const startTime = Date.now();
     
-    // Получаем все строки, где vocabulary не NULL и не пустая строка
+    // Получаем все строки, где значение параметра больше заданного
     const rows = await new Promise((resolve, reject) => {
-        _db.all(query, (err, rows) => {
+        _db.all(query, [maxValue], (err, rows) => {
             const executionTime = Date.now() - startTime;
             
             if (err) {
@@ -435,14 +440,14 @@ async function getAllVocabularyFilled(filename) {
         return newRow;
     });
     
-    // if (filteredRows && filteredRows.length > 0) {
-    //   console.log('[DB-VOCABULARY] Sample of first 3 filtered rows:');
-    //   filteredRows.slice(0, 3).forEach((row, index) => {
-    //     console.log(`[DB-VOCABULARY]   Row ${index + 1}: GlobalID=${row.globalid}, ExpressID=${row.expressID}, Vocabulary=${row.vocabulary}`);
-    //   });
-    // } else {
-    //   console.log('[DB-VOCABULARY] No filtered rows returned');
-    // }
+    if (filteredRows && filteredRows.length > 0) {
+      console.log('[DB-VOCABULARY] Sample of first 3 filtered rows:');
+      filteredRows.slice(0, 3).forEach((row, index) => {
+        console.log(`[DB-VOCABULARY]   Row ${index + 1}: ${JSON.stringify(row)}`);
+      });
+    } else {
+      console.log('[DB-VOCABULARY] No filtered rows returned');
+    }
     
     console.log('[DB-VOCABULARY] getAllVocabularyFilled completed successfully');
     return filteredRows;

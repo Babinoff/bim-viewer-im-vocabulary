@@ -2,6 +2,8 @@ const { generateDataByCode } = require('./data-generators');
 const { connectToDatabase, getAllGlobalIds } = require('./db');
 const { streamChatCompletion } = require('./llm-services');
 
+const llmServer = require('./llm-server');
+
 // Тестовый скрипт для проверки работы LLM генерации
 async function testLLMGeneration() {
   try {
@@ -151,11 +153,17 @@ async function testLLMStream() {
   );
 }
 
+async function testLLMCheak() {
+  console.log("statrt testLLMStream"); 
+  await llmServer.startCheck("exploitation_test");
+}
+
 // Запускаем тест, если скрипт вызван напрямую
 if (require.main === module) {
   console.log("statrt test-llm-generation"); 
+  testLLMCheak();
   // testLLMStream();
-  testLLMGeneration();
+  // testLLMGeneration();
 }
 
 module.exports = { testLLMGeneration };

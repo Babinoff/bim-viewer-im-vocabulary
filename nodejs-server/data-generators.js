@@ -3,7 +3,6 @@
 // const { formatDate, getRandomDate, getRandomDateInRange } = require('./date-utils');
 const { chatWithModel, streamChatCompletion } = require('./llm-services');
 const { getAllGlobalIds } = require('./db');
-const axios = require('axios');
 
 // Функции для генерации реалистичных данных
 function generateRandomDate(startYear = 2020, endYear = 2030) {
@@ -185,19 +184,31 @@ const dataGenerators = {
         // Прямой HTTP вызов к MCP серверу для получения списка IFC элементов
         let entitiesResponse;
         try {
-          const mcpResponse = await axios.post('http://localhost:8001/bonsai/list_ifc_entities', {
-            entity_type: ifcType,
-            limit: 50,
-            selected_only: false
-          }, {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+          const mcpResponse = await fetch('http://localhost:8001/bonsai/list_ifc_entities', {
+            method: 'POST',
             headers: {
               'accept': 'application/json',
               'Content-Type': 'application/json'
             },
-            timeout: 10000 // 10 секунд таймаут
+            body: JSON.stringify({
+              entity_type: ifcType,
+              limit: 50,
+              selected_only: false
+            }),
+            signal: controller.signal
           });
-          
-          entitiesResponse = JSON.stringify(mcpResponse.data);
+
+          clearTimeout(timeoutId);
+
+          if (!mcpResponse.ok) {
+            throw new Error(`HTTP error! status: ${mcpResponse.status}`);
+          }
+
+          const responseData = await mcpResponse.json();
+          entitiesResponse = JSON.stringify(responseData);
           console.log(`Получен ответ от MCP сервера для типа ${ifcType}:`, mcpResponse.data);
         } catch (mcpError) {
           console.error(`Ошибка при обращении к MCP серверу:`, mcpError.message);

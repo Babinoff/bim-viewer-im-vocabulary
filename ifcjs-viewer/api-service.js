@@ -235,66 +235,25 @@ async function getAllKsiExpressIds(fileName) {
   }
 }
 
-async function getAllVocabularyFilled(fileName) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
+// async function getAllVocabularyFilled(fileName) {
+//   try {
+//     const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
+//       method: 'GET',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       }
+//     });
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! status: ${response.status}`);
+//     }
     
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching all filled vocabulary:', error);
-    throw error;
-  }
-}
-
-async function getLlMResponse(fileName) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error getting LLM response:', error);
-    throw error;
-  }
-}
-
-// Экспорт всех методов
-async function stopLLMCheck() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error stopping LLM check:', error);
-    throw error;
-  }
-}
+//     return await response.json();
+//   } catch (error) {
+//     console.error('Error fetching all filled vocabulary:', error);
+//     throw error;
+//   }
+// }
 
 /**
  * Выполнить команду генерации данных
@@ -334,7 +293,7 @@ async function executeCommand(fileName, command) {
  */
 async function startLlmCheck(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
+    const response = await fetch(`${API_BASE_URL}/llm-check?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -358,7 +317,7 @@ async function startLlmCheck(fileName) {
  */
 async function stopLlmCheck() {
   try {
-    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
+    const response = await fetch(`${API_BASE_URL}/llm-check`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -383,7 +342,7 @@ async function stopLlmCheck() {
  */
 async function getLlmResult(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/get-llm-result?fileName=${fileName}`, {
+    const response = await fetch(`${API_BASE_URL}/llm-results?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -443,60 +402,6 @@ export async function startLLMCheck(fileName) {
   }
 }
 
-// Функция для получения результатов LLM
-export async function getLLMResults() {
-  try {
-    console.log('[CLIENT-RESULTS] Requesting LLM results from server');
-    console.log('[CLIENT-RESULTS] Timestamp:', new Date().toISOString());
-    console.log('[CLIENT-RESULTS] Sending GET request to /api/llm-results');
-    
-    const startTime = Date.now();
-    
-    const response = await fetch('/api/llm-results');
-    
-    const requestTime = Date.now() - startTime;
-    console.log('[CLIENT-RESULTS] Request completed in:', requestTime, 'ms');
-    console.log('[CLIENT-RESULTS] Response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      console.error('[CLIENT-RESULTS] ERROR: Response not OK:', response.status, response.statusText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('[CLIENT-RESULTS] Response data received:', data);
-    
-    if (data.success && data.results) {
-      const resultKeys = Object.keys(data.results);
-      console.log('[CLIENT-RESULTS] Results available for files:', resultKeys);
-      
-      if (resultKeys.length > 0) {
-        for (const [fileName, result] of Object.entries(data.results)) {
-          console.log(`[CLIENT-RESULTS] Result for file "${fileName}":`);
-          if (result.dangerousElements) {
-            console.log(`[CLIENT-RESULTS]   - Dangerous elements: ${result.dangerousElements.length}`);
-          }
-          if (result.message) {
-            console.log(`[CLIENT-RESULTS]   - Message length: ${result.message.length} characters`);
-          }
-        }
-      } else {
-        console.log('[CLIENT-RESULTS] No results available yet');
-      }
-    } else {
-      console.log('[CLIENT-RESULTS] No successful results in response');
-    }
-    
-    console.log('[CLIENT-RESULTS] LLM results request completed successfully');
-    return data;
-  } catch (error) {
-    console.error('[CLIENT-RESULTS] CRITICAL ERROR getting LLM results:', error);
-    console.error('[CLIENT-RESULTS] Error details:', error.message);
-    console.error('[CLIENT-RESULTS] Error stack:', error.stack);
-    throw error;
-  }
-}
-
 export default {
   getModelInfo,
   createVocabulary,
@@ -506,8 +411,7 @@ export default {
   getVocabulary,
   getFromAi,
   getAllKsiExpressIds,
-  getAllVocabularyFilled,
-  getLlMResponse,
+  // getAllVocabularyFilled,
   executeCommand,
   startLlmCheck,
   stopLlmCheck,

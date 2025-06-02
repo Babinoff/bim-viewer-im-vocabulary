@@ -250,20 +250,49 @@ export class GUIManager {
     console.log('Начинаем пакетное создание словаря...');
     const allElements = [];
     
-    // Собираем все элементы из всех узлов
-    for (const node of nodes) {
-      await this.collectVocabularyElements(node, allElements);
-    }
-    
-    console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
+    // Показываем прогресс-бар
+    const progressOverlay = document.getElementById('vocabularyProgressOverlay');
+    const progressBar = document.getElementById('vocabularyProgressBar');
+    const progressText = document.getElementById('vocabularyProgressText');
+    progressOverlay.style.display = 'flex';
     
     try {
+      // Собираем все элементы из всех узлов
+      let processedNodes = 0;
+      for (const node of nodes) {
+        await this.collectVocabularyElements(node, allElements);
+        processedNodes++;
+        
+        // Обновляем прогресс сбора элементов (50% от общего прогресса)
+        const progress = (processedNodes / nodes.length) * 50;
+        progressBar.style.width = `${progress}%`;
+        progressText.textContent = `${Math.round(progress)}%`;
+      }
+      
+      console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
+      
       // Отправляем все элементы пакетно
       const result = await this.api.addVocabularyBatch(this.fileName, allElements);
+      
+      // Устанавливаем прогресс в 100%
+      progressBar.style.width = '100%';
+      progressText.textContent = '100%';
+      
+      // Скрываем прогресс-бар через секунду
+      setTimeout(() => {
+        progressOverlay.style.display = 'none';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+      }, 1000);
+      
       console.log('Пакетное создание словаря завершено:', result);
       return result;
     } catch (error) {
       console.error('Ошибка при пакетном создании словаря:', error);
+      // Скрываем прогресс-бар в случае ошибки
+      progressOverlay.style.display = 'none';
+      progressBar.style.width = '0%';
+      progressText.textContent = '0%';
       throw error;
     }
   }

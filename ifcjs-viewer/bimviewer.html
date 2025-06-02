@@ -15,7 +15,7 @@
       <button class="custom-btn" id="btnAllKsi">Заполнить КСИ для всех элементов</button>
          <button class="custom-btn" id="btnOnKsi">Включить КСИ</button>
          <button class="custom-btn" id="btnOffKsi">Отключить КСИ</button>
-         <button class="custom-btn" id="btnLLM">LLM</button>
+         <button class="custom-btn" id="btnLLM">ИИ проверки</button>
     </div>
 
     <div id="progressOverlay" class="progress-overlay">
@@ -26,6 +26,16 @@
           </div>
           <div class="progress-text" id="progressText">0%</div>
           <button class="btn-cancel" id="cancelProgress">Отмена</button>
+      </div>
+    </div>
+
+    <div id="vocabularyProgressOverlay" class="progress-overlay">
+      <div class="progress-container">
+          <h3>Загрузка словаря...</h3>
+          <div class="progress-bar">
+              <div class="progress" id="vocabularyProgressBar"></div>
+          </div>
+          <div class="progress-text" id="vocabularyProgressText">0%</div>
       </div>
     </div>
 
@@ -198,9 +208,9 @@
       /* Стили для виджетов */
       .info-widgets {
       position: absolute;
-      top: 50%; /* Центрирование по вертикали */
+      top: 10%; /* Центрирование по вертикали */
       right: 0; /* Привязка к правому краю */
-      transform: translateY(-50%); /* Смещение вверх на половину высоты для точного центрирования */
+      /* transform: translateY(-10%); Смещение вверх на половину высоты для точного центрирования */
       height: auto; /* Высота по содержимому */
       pointer-events: none;
   }

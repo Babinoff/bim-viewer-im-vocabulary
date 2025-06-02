@@ -7,14 +7,14 @@ export class LLMClient {
     this.viewer = viewer;
     this.checkInterval = null;
     this.isRunning = false;
-    this.intervalDelay = 20000; // 20 секунд
+    this.intervalDelay = 300000; // 300 секунд
   }
 
   // Запуск LLM-проверки
   async startCheck(fileName, modelID, warningMaterial) {
     try {
       if (window.llmLogger) {
-        window.llmLogger.logClientAction('Starting LLM check process');
+        window.llmLogger.logClientAction('Начало проверки систем ИИ');
         window.llmLogger.logClientAction(`File: ${fileName}`);
       }
       
@@ -28,30 +28,30 @@ export class LLMClient {
       this.isRunning = true;
       
       // Запускаем серверную проверку
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Starting server LLM check');
-      }
-      await this.apiService.startLlmCheck(fileName);
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction('Starting server LLM check');
+      // }
+      window.llmLogger.logClientAction(await this.apiService.startLlmCheck(fileName));
       
       // Выполняем первую проверку сразу
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Performing immediate first check');
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction('Performing immediate first check');
+      // }
       await this.performCheck(fileName, modelID, warningMaterial);
       
       // Запускаем интервал для последующих проверок
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Setting up polling interval');
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction('Setting up polling interval');
+      // }
       this.checkInterval = setInterval(async () => {
         if (this.isRunning) {
           await this.performCheck(fileName, modelID, warningMaterial);
         }
       }, this.intervalDelay);
       
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
+      // }
       
     } catch (error) {
       if (window.llmLogger) {

@@ -121688,45 +121688,25 @@ async function getAllKsiExpressIds(fileName) {
   }
 }
 
-async function getAllVocabularyFilled(fileName) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
+// async function getAllVocabularyFilled(fileName) {
+//   try {
+//     const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
+//       method: 'GET',
+//       headers: {
+//         'Content-Type': 'application/json',
+//       }
+//     });
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+//     if (!response.ok) {
+//       throw new Error(`HTTP error! status: ${response.status}`);
+//     }
     
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching all filled vocabulary:', error);
-    throw error;
-  }
-}
-
-async function getLlMResponse(fileName) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error getting LLM response:', error);
-    throw error;
-  }
-}
+//     return await response.json();
+//   } catch (error) {
+//     console.error('Error fetching all filled vocabulary:', error);
+//     throw error;
+//   }
+// }
 
 /**
  * Выполнить команду генерации данных
@@ -121766,7 +121746,7 @@ async function executeCommand(fileName, command) {
  */
 async function startLlmCheck(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/start-llm-check?fileName=${fileName}`, {
+    const response = await fetch(`${API_BASE_URL}/llm-check?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -121790,7 +121770,7 @@ async function startLlmCheck(fileName) {
  */
 async function stopLlmCheck() {
   try {
-    const response = await fetch(`${API_BASE_URL}/stop-llm-check`, {
+    const response = await fetch(`${API_BASE_URL}/llm-check`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -121815,7 +121795,7 @@ async function stopLlmCheck() {
  */
 async function getLlmResult(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/get-llm-result?fileName=${fileName}`, {
+    const response = await fetch(`${API_BASE_URL}/llm-results?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -121842,8 +121822,7 @@ var api = {
   getVocabulary,
   getFromAi,
   getAllKsiExpressIds,
-  getAllVocabularyFilled,
-  getLlMResponse,
+  // getAllVocabularyFilled,
   executeCommand,
   startLlmCheck,
   stopLlmCheck,
@@ -122102,20 +122081,49 @@ class GUIManager {
     console.log('Начинаем пакетное создание словаря...');
     const allElements = [];
     
-    // Собираем все элементы из всех узлов
-    for (const node of nodes) {
-      await this.collectVocabularyElements(node, allElements);
-    }
-    
-    console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
+    // Показываем прогресс-бар
+    const progressOverlay = document.getElementById('vocabularyProgressOverlay');
+    const progressBar = document.getElementById('vocabularyProgressBar');
+    const progressText = document.getElementById('vocabularyProgressText');
+    progressOverlay.style.display = 'flex';
     
     try {
+      // Собираем все элементы из всех узлов
+      let processedNodes = 0;
+      for (const node of nodes) {
+        await this.collectVocabularyElements(node, allElements);
+        processedNodes++;
+        
+        // Обновляем прогресс сбора элементов (50% от общего прогресса)
+        const progress = (processedNodes / nodes.length) * 50;
+        progressBar.style.width = `${progress}%`;
+        progressText.textContent = `${Math.round(progress)}%`;
+      }
+      
+      console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
+      
       // Отправляем все элементы пакетно
       const result = await this.api.addVocabularyBatch(this.fileName, allElements);
+      
+      // Устанавливаем прогресс в 100%
+      progressBar.style.width = '100%';
+      progressText.textContent = '100%';
+      
+      // Скрываем прогресс-бар через секунду
+      setTimeout(() => {
+        progressOverlay.style.display = 'none';
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+      }, 1000);
+      
       console.log('Пакетное создание словаря завершено:', result);
       return result;
     } catch (error) {
       console.error('Ошибка при пакетном создании словаря:', error);
+      // Скрываем прогресс-бар в случае ошибки
+      progressOverlay.style.display = 'none';
+      progressBar.style.width = '0%';
+      progressText.textContent = '0%';
       throw error;
     }
   }
@@ -122421,14 +122429,14 @@ class LLMClient {
     this.viewer = viewer;
     this.checkInterval = null;
     this.isRunning = false;
-    this.intervalDelay = 20000; // 20 секунд
+    this.intervalDelay = 300000; // 300 секунд
   }
 
   // Запуск LLM-проверки
   async startCheck(fileName, modelID, warningMaterial) {
     try {
       if (window.llmLogger) {
-        window.llmLogger.logClientAction('Starting LLM check process');
+        window.llmLogger.logClientAction('Начало проверки систем ИИ');
         window.llmLogger.logClientAction(`File: ${fileName}`);
       }
       
@@ -122442,30 +122450,30 @@ class LLMClient {
       this.isRunning = true;
       
       // Запускаем серверную проверку
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Starting server LLM check');
-      }
-      await this.apiService.startLlmCheck(fileName);
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction('Starting server LLM check');
+      // }
+      window.llmLogger.logClientAction(await this.apiService.startLlmCheck(fileName));
       
       // Выполняем первую проверку сразу
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Performing immediate first check');
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction('Performing immediate first check');
+      // }
       await this.performCheck(fileName, modelID, warningMaterial);
       
       // Запускаем интервал для последующих проверок
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Setting up polling interval');
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction('Setting up polling interval');
+      // }
       this.checkInterval = setInterval(async () => {
         if (this.isRunning) {
           await this.performCheck(fileName, modelID, warningMaterial);
         }
       }, this.intervalDelay);
       
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
+      // }
       
     } catch (error) {
       if (window.llmLogger) {
