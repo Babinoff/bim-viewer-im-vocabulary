@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const API_KEY = process.env.WEBUI_TOKEN;
 const BASE_URL = 'http://localhost:9090';
-const _model_tech = 'google/gemma-3-12b';
+const _model_tech = 'qwen/qwen3-8b';
 const _model_pro = 'deepseek/deepseek-r1-0528-qwen3-8b';
 const roles = {"pro":_model_pro, "tech":_model_tech};
 
@@ -88,8 +88,8 @@ ifcAssist = `Ты специализированный помощник для �
 async function streamChatCompletion(message,onChunk,role) {
     try {
         console.log("streamChatCompletion message", role);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
+        // const controller = new AbortController();
+        // const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
         
         const response = await fetch(`${BASE_URL}/api/chat/completions`, {
             method: 'POST',
@@ -105,14 +105,15 @@ async function streamChatCompletion(message,onChunk,role) {
                         content: message
                     }
                 ],
-                
+                tool_ids: [
+                    "server:0"
+                ],
+                tool_choice: "auto",
                 stream: true
-            }),
-            signal: controller.signal,
-            timeout: 60000 // 60 секунд таймаут
+            })
         });
         
-        clearTimeout(timeoutId);
+        // clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

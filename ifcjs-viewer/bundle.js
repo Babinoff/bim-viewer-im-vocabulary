@@ -122618,7 +122618,7 @@ class LLMClient {
       
       if (prompt) {
         // window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
-        const cheakStart = await this.apiService.startLlmPrompt(prompt);
+        const cheakStart = await this.apiService.startLlmPrompt(prompt.replace('21', 'ifcSpace 21'));
         window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
       }
       else {
@@ -123966,28 +123966,31 @@ btnExecuteCommand.onclick = async function() {
       alert('Введите команду');
       return;
     }
-
+          // Инициализируем LLM клиент если еще не создан
+    if (!_llmClient) {
+      _llmClient = new LLMClient(api, _viewer);
+    }
+    window.llmLogger.showLogWindow();
+    // apiService.stopLlmCheck();
+    _llmClient.stopCheck();
     if (command.startsWith('заявка')) {
       // const requestText = command.substring('заявка'.length).trim();
       // const prompt = `Пользователь оставил заявку: ${requestText}. Сгенерируй ответ для пользователя.`;
       const prompt = `В нашем помещении 21 часто отключается электричество, 
                       приходится включать обратно автомат в щитовой, 
                       просьба сделать что-то, чтобы работа электросети стабилизировалась.`;
+      
+      const testPrompt = `запроси get_ifc_properties для GlobalId = "2fqFmehLr9j9nPGsNPAakz"`;
 
-      // Инициализируем LLM клиент если еще не создан
-      if (!_llmClient) {
-        _llmClient = new LLMClient(api, _viewer);
-      }
-      api.stopLlmCheck();
-      _llmClient.stopCheck();
-      window.llmLogger.showLogWindow();
+
+
       // Запускаем LLM проверку для получения ответа
-      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, testPrompt);
 
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Отправка заявки: ${prompt}`);
-        window.llmLogger.logLLMResponse(`Заявка отправлена: ${prompt}`);
-      }
+      // if (window.llmLogger) {
+      //   window.llmLogger.logClientAction(`Отправка заявки: ${prompt}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${testPrompt}`);
+      // }
 
       return;
     }
@@ -124040,7 +124043,7 @@ btnLLM.onclick = async function() {
     }
     
     if (_llmClient.isCheckRunning()) {
-      api.stopLlmCheck();
+      // apiService.stopLlmCheck();
       _llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';

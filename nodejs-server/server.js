@@ -416,7 +416,7 @@ app.get('/llm-stop', (req, res) => {
     const result = llmServer.stopCheck();
     
     console.log('[LLM-STOP] LLM check stopped successfully');
-    res.status(200).json(result);
+    res.status(200);
   } catch (error) {
     console.error('[LLM-STOP] ERROR stopping LLM check:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });

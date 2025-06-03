@@ -7,12 +7,16 @@ async function checkMCPServerHealth() {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     const response = await fetch('http://localhost:8001/bonsai/get_ifc_project_info', {
-      signal: controller.signal
+      method: 'POST',
+      headers: {
+        'accept': 'application/json'
+      },
     });
 
     clearTimeout(timeoutId);
 
     console.log('MCP сервер доступен, статус открытого файла:', response.status);
+    console.log('response:', response);
     return true;
   } catch (error) {
     console.log('MCP сервер недоступен:', error.message);
@@ -32,7 +36,7 @@ async function testMCPDirectCall() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        entity_type: 'IfcAirTerminal',
+        entity_type: 'IfcUnitaryEquipment',
         limit: 50,
         selected_only: false
       }),
@@ -76,8 +80,3 @@ async function runTests() {
 
 // Запуск тестов
 await runTests().catch(console.error);
-
-module.exports = {
-  testMCPDirectCall,
-  checkMCPServerHealth
-};

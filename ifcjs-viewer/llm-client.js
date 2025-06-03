@@ -81,7 +81,7 @@ export class LLMClient {
       
       if (prompt) {
         // window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
-        const cheakStart = await this.apiService.startLlmPrompt(prompt);
+        const cheakStart = await this.apiService.startLlmPrompt(prompt.replace('21', 'ifcSpace 21'));
         window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
       }
       else{

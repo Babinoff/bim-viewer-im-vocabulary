@@ -165,8 +165,6 @@ class LLMServer {
     
     this.isRunning = false;
     console.log('[LLM-SERVER] LLM check stopped');
-    
-    return { success: true, message: 'LLM check stopped.' };
   }
   
   // Получение результата LLM
