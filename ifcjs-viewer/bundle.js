@@ -121746,6 +121746,28 @@ async function startLlmCheck(fileName) {
   }
 }
 
+async function startLlmPromt(promt) {
+  try {
+    console.log('[CLIENT-LLM] Starting LLM promt:', promt);
+    const response = await fetch(`${API_BASE_URL}/llm-promt/?promt=${promt}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      console.error('[CLIENT-LLM] ERROR: Response not OK:', response);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error starting LLM check:', error);
+    throw error;
+  }
+}
+
 /**
  * Остановить проверку LLM
  * @returns {Promise<Object>} - результат остановки
@@ -121889,19 +121911,19 @@ function connectToWebSocket(callbacks = {}) {
  * @param {string} fileName - имя файла модели
  * @returns {Promise<void>}
  */
-async function requestLlmResultsViaWebSocket(fileName, prompt) {
-  try {
-    if (!socket || !socket.connected) {
-      throw new Error('WebSocket not connected. Call connectToWebSocket first.');
-    }
+// async function requestLlmResultsViaWebSocket(fileName, prompt) {
+//   try {
+//     if (!socket || !socket.connected) {
+//       throw new Error('WebSocket not connected. Call connectToWebSocket first.');
+//     }
     
-    console.log('Requesting LLM results via WebSocket for file:', fileName, 'with prompt:', prompt);
-    socket.emit('request-llm-results', { fileName, prompt });
-  } catch (error) {
-    console.error('Error requesting LLM results via WebSocket:', error);
-    throw error;
-  }
-}
+//     console.log('Requesting LLM results via WebSocket for file:', fileName, 'with prompt:', prompt);
+//     socket.emit('request-llm-results', { fileName, prompt });
+//   } catch (error) {
+//     console.error('Error requesting LLM results via WebSocket:', error);
+//     throw error;
+//   }
+// }
 
 var api = {
   getModelInfo,
@@ -121917,7 +121939,8 @@ var api = {
   stopLlmCheck,
   getLlmResult,
   connectToWebSocket,
-  requestLlmResultsViaWebSocket
+  startLlmPromt
+  // requestLlmResultsViaWebSocket
 };
 
 // GUI Manager Library
@@ -122593,8 +122616,17 @@ class LLMClient {
         }
       });
       
-      // Отправляем запрос на начало проверки через HTTP
-      window.llmLogger.logServerResponse(JSON.stringify(await this.apiService.startLlmCheck(fileName)));
+      if (prompt) {
+        window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
+        const cheakStart = await this.apiService.startLlmPromt(prompt);
+        window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
+      }
+      else {
+        // Отправляем запрос на начало проверки через HTTP
+        const cheakStart = await this.apiService.startLlmCheck(fileName);
+        window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
+      }
+
       
     } catch (error) {
       if (window.llmLogger) {
@@ -122669,31 +122701,6 @@ class LLMClient {
       }
     }
   }
-  
-  // updateLLMOutput(result) {
-  //   try {
-  //     if (window.llmLogger) {
-  //       window.llmLogger.logClientAction('Updating LLM output in UI');
-  //     }
-  //     const llmOutput = document.getElementById('llmOutput');
-  //     if (llmOutput) {
-  //       // Отключаем обновление llmOutput, так как теперь используем логгер
-  //       // llmOutput.value = result.message || result;
-  //       if (window.llmLogger) {
-  //         window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
-  //       }
-  //     } else {
-  //       if (window.llmLogger) {
-  //         window.llmLogger.logClientAction('LLM output element not found');
-  //       }
-  //     }
-  //   } catch (error) {
-  //     if (window.llmLogger) {
-  //       window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
-  //     }
-  //     console.error('[LLM-CLIENT] Error updating LLM output:', error);
-  //   }
-  // }
   
   // Обработка результатов LLM и подсветка элементов
   async highlightLLMResults(dangerousElements, modelID, warningMaterial) {
@@ -123486,6 +123493,9 @@ let _modelInfo = {
   message: ``,
   rowCount: null
 };
+// Создаем экземпляр LLM клиента
+let _llmClient = null;
+
 new MeshLambertMaterial({  
   color: 0xcc0000,  // Red color  
   opacity: 0.5,  
@@ -123962,18 +123972,19 @@ btnExecuteCommand.onclick = async function() {
       const prompt = `В нашем помещении 21 часто отключается электричество, 
                       приходится включать обратно автомат в щитовой, 
                       просьба сделать что-то, чтобы работа электросети стабилизировалась.`;
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Отправка заявки: ${requestText}`);
-        window.llmLogger.logLLMResponse(`Заявка отправлена: ${requestText}`);
-      }
 
       // Инициализируем LLM клиент если еще не создан
-      if (!llmClient) {
-        llmClient = new LLMClient(api, _viewer);
+      if (!_llmClient) {
+        _llmClient = new LLMClient(api, _viewer);
       }
 
       // Запускаем LLM проверку для получения ответа
-      llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction(`Отправка заявки: ${prompt}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${prompt}`);
+      }
 
       return;
     }
@@ -124002,9 +124013,6 @@ commandInput.addEventListener('keypress', function(event) {
   }
 });
 
-// Создаем экземпляр LLM клиента
-let llmClient = null;
-
 // Обработчик кнопки LLM
 const btnLLM = document.getElementById("btnLLM");
 
@@ -124024,13 +124032,13 @@ btnLLM.onclick = async function() {
     }
     
     // Инициализируем LLM клиент если еще не создан
-    if (!llmClient) {
-      llmClient = new LLMClient(api, _viewer);
+    if (!_llmClient) {
+      _llmClient = new LLMClient(api, _viewer);
     }
     
-    if (llmClient.isCheckRunning()) {
+    if (_llmClient.isCheckRunning()) {
       api.stopLlmCheck();
-      llmClient.stopCheck();
+      _llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';
       window.llmLogger.hideLogWindow();
@@ -124039,7 +124047,7 @@ btnLLM.onclick = async function() {
       btnLLM.style.backgroundColor = 'red';
       btnLLM.textContent = 'LLM (активно)';
       window.llmLogger.showLogWindow();
-      await llmClient.startCheck(_fileName, _modelID, _warningMaterial);
+      await _llmClient.startCheck(_fileName, _modelID, _warningMaterial);
     }
   } catch (error) {
     if (window.llmLogger) {

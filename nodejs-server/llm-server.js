@@ -65,11 +65,11 @@ class LLMServer {
   }
   
   // Генерация результата через LLM
-  async generateLLMResult(dangerousElementsData, socketId = null, userPrompt = null) {
+  async generateLLMResult(dangerousElementsData = null, socketId = null, prompt = null) {
     try {
       let prompt;
-      if (userPrompt) {
-        prompt = userPrompt;
+      if (prompt) {
+        prompt = prompt;
         console.log(`[LLM-SERVER] Generating LLM result using user provided prompt: ${prompt}`);
       } else if (dangerousElementsData && dangerousElementsData.length > 0) {
         prompt = `Привышение пороговых величин для датчиков оборудования, сопутсвующуя информация: ${JSON.stringify(dangerousElementsData)} .`;
@@ -105,15 +105,31 @@ class LLMServer {
           }
         }
       );
-      
-      console.log('[LLM-SERVER] LLM response received, length:', llmResponse ? llmResponse.length : 0);
-      const responseParts = llmResponse.split("</think>")
-      const result = {
-        // globalid теперь может быть не определен, если используется userPrompt
-        globalid: dangerousElementsData ? dangerousElementsData.map(id => id.globalid) : [],
-        think: responseParts[0],
-        message: responseParts[1]
-      };
+
+      let result = {};
+
+      if (prompt) {
+        result = {
+          message: llmResponse
+        };
+      } else if (dangerousElementsData && dangerousElementsData.length > 0) {
+        console.log('[LLM-SERVER] LLM response received, length:', llmResponse ? llmResponse.length : 0);
+        const responseParts = llmResponse.split("</think>")
+        result = {
+          // globalid теперь может быть не определен, если используется userPrompt
+          globalid: dangerousElementsData ? dangerousElementsData.map(id => id.globalid) : [],
+          think: responseParts[0],
+          message: responseParts[1]
+        };
+      } else {
+        console.log('[LLM-SERVER] No data provided for LLM result generation.');
+        // Отправляем ошибку или сообщение об отсутствии данных через WebSocket
+        const io = require('./server').io;
+        if (io && socketId) {
+          io.to(socketId).emit('llm-error', { message: 'No data or prompt provided for LLM generation.' });
+        }
+        return; // Прерываем выполнение, если нет данных для генерации
+      }
       
       // Отправляем полный результат через WebSocket
       if (io && socketId) {
@@ -129,10 +145,7 @@ class LLMServer {
       
       // Fallback к тестовому результату в случае ошибки
       const fallbackResult = {
-        message: `Ошибка при обращении к LLM. 
-        Найдены элементы с высоким значением vocabulary (>900):
-        \n${dangerousElementsData.map(id => `- GlobalID: ${id.globalid}`).join('\n')}\n\n
-        Всего элементов: ${dangerousElementsData.length}`,
+        message: `Ошибка при обращении к LLM.`,
       };
       
       console.log('[LLM-SERVER] Fallback result generated');

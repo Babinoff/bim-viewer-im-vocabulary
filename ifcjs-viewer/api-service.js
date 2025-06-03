@@ -293,6 +293,28 @@ async function startLlmCheck(fileName) {
   }
 }
 
+async function startLlmPromt(promt) {
+  try {
+    console.log('[CLIENT-LLM] Starting LLM promt:', promt);
+    const response = await fetch(`${API_BASE_URL}/llm-promt/?promt=${promt}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      console.error('[CLIENT-LLM] ERROR: Response not OK:', response);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error starting LLM check:', error);
+    throw error;
+  }
+}
+
 /**
  * Остановить проверку LLM
  * @returns {Promise<Object>} - результат остановки
@@ -436,19 +458,19 @@ function connectToWebSocket(callbacks = {}) {
  * @param {string} fileName - имя файла модели
  * @returns {Promise<void>}
  */
-async function requestLlmResultsViaWebSocket(fileName, prompt) {
-  try {
-    if (!socket || !socket.connected) {
-      throw new Error('WebSocket not connected. Call connectToWebSocket first.');
-    }
+// async function requestLlmResultsViaWebSocket(fileName, prompt) {
+//   try {
+//     if (!socket || !socket.connected) {
+//       throw new Error('WebSocket not connected. Call connectToWebSocket first.');
+//     }
     
-    console.log('Requesting LLM results via WebSocket for file:', fileName, 'with prompt:', prompt);
-    socket.emit('request-llm-results', { fileName, prompt });
-  } catch (error) {
-    console.error('Error requesting LLM results via WebSocket:', error);
-    throw error;
-  }
-}
+//     console.log('Requesting LLM results via WebSocket for file:', fileName, 'with prompt:', prompt);
+//     socket.emit('request-llm-results', { fileName, prompt });
+//   } catch (error) {
+//     console.error('Error requesting LLM results via WebSocket:', error);
+//     throw error;
+//   }
+// }
 
 export default {
   getModelInfo,
@@ -464,5 +486,6 @@ export default {
   stopLlmCheck,
   getLlmResult,
   connectToWebSocket,
-  requestLlmResultsViaWebSocket
+  startLlmPromt
+  // requestLlmResultsViaWebSocket
 };

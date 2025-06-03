@@ -105,6 +105,9 @@ let _modelInfo = {
   message: ``,
   rowCount: null
 };
+// Создаем экземпляр LLM клиента
+let _llmClient = null;
+
 const _customSelectMaterial = new MeshLambertMaterial({  
   color: 0xcc0000,  // Red color  
   opacity: 0.5,  
@@ -581,19 +584,20 @@ btnExecuteCommand.onclick = async function() {
       // const prompt = `Пользователь оставил заявку: ${requestText}. Сгенерируй ответ для пользователя.`;
       const prompt = `В нашем помещении 21 часто отключается электричество, 
                       приходится включать обратно автомат в щитовой, 
-                      просьба сделать что-то, чтобы работа электросети стабилизировалась.`;
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Отправка заявки: ${requestText}`);
-        window.llmLogger.logLLMResponse(`Заявка отправлена: ${requestText}`);
-      }
+                      просьба сделать что-то, чтобы работа электросети стабилизировалась.`
 
       // Инициализируем LLM клиент если еще не создан
-      if (!llmClient) {
-        llmClient = new LLMClient(apiService, _viewer);
+      if (!_llmClient) {
+        _llmClient = new LLMClient(apiService, _viewer);
       }
 
       // Запускаем LLM проверку для получения ответа
-      llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction(`Отправка заявки: ${prompt}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${prompt}`);
+      }
 
       return;
     }
@@ -625,9 +629,6 @@ commandInput.addEventListener('keypress', function(event) {
 // Переменная для хранения интервала LLM проверки
 let llmCheckInterval = null;
 
-// Создаем экземпляр LLM клиента
-let llmClient = null;
-
 // Обработчик кнопки LLM
 const btnLLM = document.getElementById("btnLLM");
 
@@ -647,13 +648,13 @@ btnLLM.onclick = async function() {
     }
     
     // Инициализируем LLM клиент если еще не создан
-    if (!llmClient) {
-      llmClient = new LLMClient(apiService, _viewer);
+    if (!_llmClient) {
+      _llmClient = new LLMClient(apiService, _viewer);
     }
     
-    if (llmClient.isCheckRunning()) {
+    if (_llmClient.isCheckRunning()) {
       apiService.stopLlmCheck();
-      llmClient.stopCheck();
+      _llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';
       window.llmLogger.hideLogWindow();
@@ -662,7 +663,7 @@ btnLLM.onclick = async function() {
       btnLLM.style.backgroundColor = 'red';
       btnLLM.textContent = 'LLM (активно)';
       window.llmLogger.showLogWindow();
-      await llmClient.startCheck(_fileName, _modelID, _warningMaterial);
+      await _llmClient.startCheck(_fileName, _modelID, _warningMaterial);
     }
   } catch (error) {
     if (window.llmLogger) {
@@ -675,43 +676,6 @@ btnLLM.onclick = async function() {
     btnLLM.textContent = 'LLM';
   }
 };
-
-// Функция для получения результатов LLM
-// async function getLLMResults(response) {
-//   try {
-//     const data = await response.json();
-    
-//     if (data.success && data.results) {
-//       // Обрабатываем результаты
-//       for (const [fileName, result] of Object.entries(data.results)) {
-//         if (result.dangerousElements && result.dangerousElements.length > 0) {
-//           // Подсвечиваем опасные элементы
-//           await highlightDangerousElements(result.dangerousElements);
-//         }
-        
-//         // Отображаем сообщение
-//         if (result.message) {
-//           alert('LLM Analysis Results:\n\n' + result.message);
-//         }
-//       }
-      
-//       // Деактивируем кнопку после получения результатов
-//       const llmButton = document.getElementById('llm-button');
-//       if (llmButton) {
-//         llmButton.classList.remove('active');
-//         llmButton.textContent = 'LLM';
-//       }
-      
-//       // Останавливаем интервал
-//       if (llmCheckInterval) {
-//         clearInterval(llmCheckInterval);
-//         llmCheckInterval = null;
-//       }
-//     }
-//   } catch (error) {
-//     console.error('Error getting LLM results:', error);
-//   }
-// }
 
 // Функция для подсветки опасных элементов
 async function highlightDangerousElements(dangerousElements) {

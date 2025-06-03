@@ -79,8 +79,17 @@ export class LLMClient {
         }
       });
       
-      // Отправляем запрос на начало проверки через HTTP
-      window.llmLogger.logServerResponse(JSON.stringify(await this.apiService.startLlmCheck(fileName)));
+      if (prompt) {
+        window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
+        const cheakStart = await this.apiService.startLlmPromt(prompt);
+        window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
+      }
+      else{
+        // Отправляем запрос на начало проверки через HTTP
+        const cheakStart = await this.apiService.startLlmCheck(fileName)
+        window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
+      }
+
       
     } catch (error) {
       if (window.llmLogger) {
@@ -155,31 +164,6 @@ export class LLMClient {
       }
     }
   }
-  
-  // updateLLMOutput(result) {
-  //   try {
-  //     if (window.llmLogger) {
-  //       window.llmLogger.logClientAction('Updating LLM output in UI');
-  //     }
-  //     const llmOutput = document.getElementById('llmOutput');
-  //     if (llmOutput) {
-  //       // Отключаем обновление llmOutput, так как теперь используем логгер
-  //       // llmOutput.value = result.message || result;
-  //       if (window.llmLogger) {
-  //         window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
-  //       }
-  //     } else {
-  //       if (window.llmLogger) {
-  //         window.llmLogger.logClientAction('LLM output element not found');
-  //       }
-  //     }
-  //   } catch (error) {
-  //     if (window.llmLogger) {
-  //       window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
-  //     }
-  //     console.error('[LLM-CLIENT] Error updating LLM output:', error);
-  //   }
-  // }
   
   // Обработка результатов LLM и подсветка элементов
   async highlightLLMResults(dangerousElements, modelID, warningMaterial) {

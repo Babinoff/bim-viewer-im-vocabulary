@@ -387,6 +387,26 @@ app.get('/llm-start', async (req, res) => {
   }
 });
 
+app.get('/llm-promt', async (req, res) => {
+  try {
+    console.log("/llm-promt", req.query)
+    if (!req.query || !req.query.promt) {
+      const errorMessage = 'Invalid data format. Required fields: promt' 
+      console.error("/llm-promt", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage
+      });
+    }
+    console.log('[LLM-CHECK] Starting LLM check for promt:', req.query.promt);
+    const result = await llmServer.generateLLMResult(prompt=req.query.promt);
+    console.log('[LLM-CHECK] LLM check started successfully');
+    res.status(200).json({ message: result });
+  } catch (error) {
+    console.error('[LLM-CHECK] CRITICAL ERROR starting LLM check:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
 // Эндпоинт для остановки LLM-проверки
 app.get('/llm-stop', (req, res) => {
   try {
