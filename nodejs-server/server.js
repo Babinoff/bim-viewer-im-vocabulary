@@ -465,36 +465,37 @@ io.on('connection', (socket) => {
   // Обработчик запроса на получение LLM результатов
   socket.on('request-llm-results', async (data) => {
     try {
-      const { fileName } = data;
-      console.log(`[SOCKET.IO] Client ${socket.id} requested LLM results for ${fileName}`);
+      const { fileName, prompt } = data;
+      console.log(`[SOCKET.IO] Client ${socket.id} requested LLM results for ${fileName} with prompt: ${prompt}`);
       
-      // Получаем результаты LLM
-      const result = llmServer.getResult(fileName);
-      
-      // Если результаты уже есть, отправляем их клиенту
-      if (result.success && result.result) {
-        socket.emit('llm-complete', { result: result.result });
+      if (prompt) {
+        // Если есть prompt, используем его для генерации ответа
+        // Предполагается, что generateLLMResult может принять prompt
+        // и использовать его вместо стандартной логики получения dangerousElements
+        // Это потребует модификации llmServer.generateLLMResult
+        llmServer.generateLLMResult(null, socket.id, prompt); // Передаем prompt
       } else {
-        // Если результатов нет, запускаем новую проверку с указанием socketId
-        // для отправки результатов в реальном времени
-        const dangerousElements = await getAllVocabularyFilled(fileName, "vocabulary", 900);
-        
-        if (dangerousElements.length > 0) {
-          let dangerousElementsData = [];
-          for (const element of dangerousElements) {
-            await getIfcProperties(element.globalid).then(properties => {
-              element.properties = properties;
-            });
-            await getIfcRelationships(element.globalid).then(relationships => {
-              element.relationships = relationships;
-            });
-            dangerousElementsData.push(element);
-          }
-          
-          // Запускаем генерацию LLM результата с указанием socketId
-          llmServer.generateLLMResult(dangerousElementsData, socket.id);
+        // Стандартная логика, если prompt не предоставлен
+        const result = llmServer.getResult(fileName);
+        if (result.success && result.result) {
+          socket.emit('llm-complete', { result: result.result });
         } else {
-          socket.emit('llm-error', { message: 'No dangerous elements found' });
+          const dangerousElements = await getAllVocabularyFilled(fileName, "vocabulary", 900);
+          if (dangerousElements.length > 0) {
+            let dangerousElementsData = [];
+            for (const element of dangerousElements) {
+              await getIfcProperties(element.globalid).then(properties => {
+                element.properties = properties;
+              });
+              await getIfcRelationships(element.globalid).then(relationships => {
+                element.relationships = relationships;
+              });
+              dangerousElementsData.push(element);
+            }
+            llmServer.generateLLMResult(dangerousElementsData, socket.id);
+          } else {
+            socket.emit('llm-error', { message: 'No dangerous elements found' });
+          }
         }
       }
     } catch (error) {
