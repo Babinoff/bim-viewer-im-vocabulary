@@ -1,7 +1,7 @@
 // Генераторы данных для различных типов обслуживания
 
 // const { formatDate, getRandomDate, getRandomDateInRange } = require('./date-utils');
-const { chatWithModel, streamChatCompletion } = require('./llm-services');
+const { streamChatCompletion } = require('./llm-services');
 const { getAllGlobalIds } = require('./db');
 
 // Функции для генерации реалистичных данных

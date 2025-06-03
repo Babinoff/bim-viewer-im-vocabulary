@@ -47,7 +47,7 @@ class LLMServer {
         }
         
         // Генерируем результат через LLM или тестовый режим
-        const result = await this.generateLLMResult(dangerousElementsData);
+        const result = await this.generateLLMResult(dangerousElementsData,null,null,"pro");
         
         // Сохраняем результат
         this.results[fileName] = result;
@@ -65,9 +65,8 @@ class LLMServer {
   }
   
   // Генерация результата через LLM
-  async generateLLMResult(dangerousElementsData = null, socketId = null, prompt = null) {
+  async generateLLMResult(dangerousElementsData = null, socketId = null, prompt = null, role) {
     try {
-      let prompt;
       if (prompt) {
         prompt = prompt;
         console.log(`[LLM-SERVER] Generating LLM result using user provided prompt: ${prompt}`);
@@ -103,7 +102,8 @@ class LLMServer {
             // Если нет конкретного socketId, отправляем всем подключенным клиентам
             io.emit('llm-chunk', { chunk });
           }
-        }
+        },
+        role
       );
 
       let result = {};

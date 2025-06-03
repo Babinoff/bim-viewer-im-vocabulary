@@ -121746,10 +121746,10 @@ async function startLlmCheck(fileName) {
   }
 }
 
-async function startLlmPromt(promt) {
+async function startLlmPrompt(prompt) {
   try {
-    console.log('[CLIENT-LLM] Starting LLM promt:', promt);
-    const response = await fetch(`${API_BASE_URL}/llm-promt/?promt=${promt}`, {
+    console.log('[CLIENT-LLM] Starting LLM prompt:', prompt);
+    const response = await fetch(`${API_BASE_URL}/llm-prompt/?prompt=${prompt}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -121939,7 +121939,7 @@ var api = {
   stopLlmCheck,
   getLlmResult,
   connectToWebSocket,
-  startLlmPromt
+  startLlmPrompt
   // requestLlmResultsViaWebSocket
 };
 
@@ -122617,8 +122617,8 @@ class LLMClient {
       });
       
       if (prompt) {
-        window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
-        const cheakStart = await this.apiService.startLlmPromt(prompt);
+        // window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
+        const cheakStart = await this.apiService.startLlmPrompt(prompt);
         window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
       }
       else {
@@ -122930,6 +122930,7 @@ class LLMLogger {
   // Метод для сброса текущего потокового лога LLM
   resetLLMStreamLog() {
     if (this.#currentLlmStreamLog) {
+      this.log("ллм", this.#currentLlmStreamLog);
       this.#currentLlmStreamLog.complete();
       this.#currentLlmStreamLog = null;
     }
@@ -123977,7 +123978,9 @@ btnExecuteCommand.onclick = async function() {
       if (!_llmClient) {
         _llmClient = new LLMClient(api, _viewer);
       }
-
+      api.stopLlmCheck();
+      _llmClient.stopCheck();
+      window.llmLogger.showLogWindow();
       // Запускаем LLM проверку для получения ответа
       _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
 

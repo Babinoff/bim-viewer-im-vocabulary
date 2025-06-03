@@ -177,6 +177,7 @@ export class LLMLogger {
   // Метод для сброса текущего потокового лога LLM
   resetLLMStreamLog() {
     if (this.#currentLlmStreamLog) {
+      this.log("ллм", this.#currentLlmStreamLog)
       this.#currentLlmStreamLog.complete();
       this.#currentLlmStreamLog = null;
     }

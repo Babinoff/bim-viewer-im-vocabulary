@@ -293,10 +293,10 @@ async function startLlmCheck(fileName) {
   }
 }
 
-async function startLlmPromt(promt) {
+async function startLlmPrompt(prompt) {
   try {
-    console.log('[CLIENT-LLM] Starting LLM promt:', promt);
-    const response = await fetch(`${API_BASE_URL}/llm-promt/?promt=${promt}`, {
+    console.log('[CLIENT-LLM] Starting LLM prompt:', prompt);
+    const response = await fetch(`${API_BASE_URL}/llm-prompt/?prompt=${prompt}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -486,6 +486,6 @@ export default {
   stopLlmCheck,
   getLlmResult,
   connectToWebSocket,
-  startLlmPromt
+  startLlmPrompt
   // requestLlmResultsViaWebSocket
 };

@@ -80,8 +80,8 @@ export class LLMClient {
       });
       
       if (prompt) {
-        window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
-        const cheakStart = await this.apiService.startLlmPromt(prompt);
+        // window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
+        const cheakStart = await this.apiService.startLlmPrompt(prompt);
         window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
       }
       else{

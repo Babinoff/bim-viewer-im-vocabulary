@@ -590,7 +590,9 @@ btnExecuteCommand.onclick = async function() {
       if (!_llmClient) {
         _llmClient = new LLMClient(apiService, _viewer);
       }
-
+      apiService.stopLlmCheck();
+      _llmClient.stopCheck();
+      window.llmLogger.showLogWindow();
       // Запускаем LLM проверку для получения ответа
       _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
 

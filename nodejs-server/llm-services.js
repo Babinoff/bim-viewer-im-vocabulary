@@ -4,6 +4,7 @@ const API_KEY = process.env.WEBUI_TOKEN;
 const BASE_URL = 'http://localhost:9090';
 const _model_tech = 'google/gemma-3-12b';
 const _model_pro = 'deepseek/deepseek-r1-0528-qwen3-8b';
+const roles = {"pro":_model_pro, "tech":_model_tech};
 
 ifcAssist = `Ты специализированный помощник для работы с доступными инструментами.
 
@@ -30,62 +31,63 @@ ifcAssist = `Ты специализированный помощник для �
                 IfcTransformer, IfcTubeBundle, IfcUnitaryEquipment, IfcValve, IfcVibrationIsolator, IfcWasteTerminal
                 `
 
-async function chatWithModel(promt) {
-    const url = `${BASE_URL}/api/chat/completions`;
-    const headers = {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json'
-    };
-    const data = {
-        "model": "google/gemma-2-9b",
-        "messages": [
-            {
-                "role": "assistant",
-                "content": ifcAssist
-            },
-            {
-                "role": "user",
-                "content": promt
-            }
-        ],
-        "tool_ids": [
-            "server:0"
-          ],
-          "tool_choice": "auto"
-    };
+// async function chatWithModel(prompt) {
+//     const url = `${BASE_URL}/api/chat/completions`;
+//     const headers = {
+//         'Authorization': `Bearer ${API_KEY}`,
+//         'Content-Type': 'application/json'
+//     };
+//     const data = {
+//         "model": "google/gemma-2-9b",
+//         "messages": [
+//             {
+//                 "role": "assistant",
+//                 "content": ifcAssist
+//             },
+//             {
+//                 "role": "user",
+//                 "content": prompt
+//             }
+//         ],
+//         "tool_ids": [
+//             "server:0"
+//           ],
+//           "tool_choice": "auto"
+//     };
 
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
+//     try {
+//         const controller = new AbortController();
+//         const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
         
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(data),
-            signal: controller.signal,
-            timeout: 60000 // 60 секунд таймаут
-        });
+//         const response = await fetch(url, {
+//             method: 'POST',
+//             headers: headers,
+//             body: JSON.stringify(data),
+//             signal: controller.signal,
+//             timeout: 60000 // 60 секунд таймаут
+//         });
         
-        clearTimeout(timeoutId);
+//         clearTimeout(timeoutId);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+//         if (!response.ok) {
+//             throw new Error(`HTTP error! status: ${response.status}`);
+//         }
         
-        console.log("chatWithModel llm response", response);
-        return await response.json();
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            console.error('Request timeout after 60 seconds');
-            throw new Error('Request timeout - LLM server took too long to respond');
-        }
-        console.error('Error:', error);
-        throw error;
-    }
-}
+//         console.log("chatWithModel llm response", response);
+//         return await response.json();
+//     } catch (error) {
+//         if (error.name === 'AbortError') {
+//             console.error('Request timeout after 60 seconds');
+//             throw new Error('Request timeout - LLM server took too long to respond');
+//         }
+//         console.error('Error:', error);
+//         throw error;
+//     }
+// }
 
-async function streamChatCompletion(message, onChunk) {
+async function streamChatCompletion(message,onChunk,role) {
     try {
+        console.log("streamChatCompletion message", role);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
         
@@ -96,7 +98,7 @@ async function streamChatCompletion(message, onChunk) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: _model_pro,
+                model: roles[role],
                 messages: [
                     {
                         role: 'user',
@@ -157,6 +159,5 @@ async function streamChatCompletion(message, onChunk) {
 }
 
 module.exports = {
-  chatWithModel,
   streamChatCompletion
 };

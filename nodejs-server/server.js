@@ -26,7 +26,7 @@ const {
 const { Mistral } = require('@mistralai/mistralai');
 require('dotenv').config();
 
-const { chatWithModel, streamChatCompletion } = require('./llm-services');
+// const { streamChatCompletion } = require('./llm-services');
 
 const app = express();
 const server = http.createServer(app);
@@ -387,18 +387,18 @@ app.get('/llm-start', async (req, res) => {
   }
 });
 
-app.get('/llm-promt', async (req, res) => {
+app.get('/llm-prompt', async (req, res) => {
   try {
-    console.log("/llm-promt", req.query)
-    if (!req.query || !req.query.promt) {
-      const errorMessage = 'Invalid data format. Required fields: promt' 
-      console.error("/llm-promt", errorMessage);
+    console.log("/llm-prompt", req.query)
+    if (!req.query || !req.query.prompt) {
+      const errorMessage = 'Invalid data format. Required fields: prompt' 
+      console.error("/llm-prompt", errorMessage);
       return res.status(400).json({ 
         error: errorMessage
       });
     }
-    console.log('[LLM-CHECK] Starting LLM check for promt:', req.query.promt);
-    const result = await llmServer.generateLLMResult(prompt=req.query.promt);
+    console.log('[LLM-CHECK] Starting LLM check for prompt:', req.query.prompt);
+    const result = await llmServer.generateLLMResult(null,null,req.query.prompt,"tech");
     console.log('[LLM-CHECK] LLM check started successfully');
     res.status(200).json({ message: result });
   } catch (error) {
@@ -451,27 +451,27 @@ app.get('/llm-results', (req, res) => {
 });
 
 
-app.get('/get-llm-response', async (req, res) => {
-  try {
-    // Новая валидация данных
-    console.log("/get-llm-response", req.query)
-    if (!req.query || !req.query.fileName || !req.query.prompt) {
-      const errorMessage = 'Invalid data format. Required fields: fileName prompt' 
-      console.error("/get-llm-response", errorMessage);
-      return res.status(400).json({ 
-        error: errorMessage
-      });
-    }
+// app.get('/get-llm-response', async (req, res) => {
+//   try {
+//     // Новая валидация данных
+//     console.log("/get-llm-response", req.query)
+//     if (!req.query || !req.query.fileName || !req.query.prompt) {
+//       const errorMessage = 'Invalid data format. Required fields: fileName prompt' 
+//       console.error("/get-llm-response", errorMessage);
+//       return res.status(400).json({ 
+//         error: errorMessage
+//       });
+//     }
 
-    let llmresponse = await chatWithModel(req.query.prompt)
-    console.log(req.query, llmresponse);
+//     let llmresponse = await chatWithModel(req.query.prompt)
+//     console.log(req.query, llmresponse);
 
-    res.status(200).json({ success: true, llmresponse: llmresponse });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+//     res.status(200).json({ success: true, llmresponse: llmresponse });
+//   } catch (error) {
+//     console.error('Error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
 // Импортируем LLM сервер
 const llmServer = require('./llm-server');
 
@@ -483,46 +483,46 @@ io.on('connection', (socket) => {
   console.log(`[SOCKET.IO] Client connected: ${socket.id}`);
   
   // Обработчик запроса на получение LLM результатов
-  socket.on('request-llm-results', async (data) => {
-    try {
-      const { fileName, prompt } = data;
-      console.log(`[SOCKET.IO] Client ${socket.id} requested LLM results for ${fileName} with prompt: ${prompt}`);
+  // socket.on('request-llm-results', async (data) => {
+  //   try {
+  //     const { fileName, prompt } = data;
+  //     console.log(`[SOCKET.IO] Client ${socket.id} requested LLM results for ${fileName} with prompt: ${prompt}`);
       
-      if (prompt) {
-        // Если есть prompt, используем его для генерации ответа
-        // Предполагается, что generateLLMResult может принять prompt
-        // и использовать его вместо стандартной логики получения dangerousElements
-        // Это потребует модификации llmServer.generateLLMResult
-        llmServer.generateLLMResult(null, socket.id, prompt); // Передаем prompt
-      } else {
-        // Стандартная логика, если prompt не предоставлен
-        const result = llmServer.getResult(fileName);
-        if (result.success && result.result) {
-          socket.emit('llm-complete', { result: result.result });
-        } else {
-          const dangerousElements = await getAllVocabularyFilled(fileName, "vocabulary", 900);
-          if (dangerousElements.length > 0) {
-            let dangerousElementsData = [];
-            for (const element of dangerousElements) {
-              await getIfcProperties(element.globalid).then(properties => {
-                element.properties = properties;
-              });
-              await getIfcRelationships(element.globalid).then(relationships => {
-                element.relationships = relationships;
-              });
-              dangerousElementsData.push(element);
-            }
-            llmServer.generateLLMResult(dangerousElementsData, socket.id);
-          } else {
-            socket.emit('llm-error', { message: 'No dangerous elements found' });
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`[SOCKET.IO] Error processing request from client ${socket.id}:`, error);
-      socket.emit('llm-error', { message: error.message });
-    }
-  });
+  //     if (prompt) {
+  //       // Если есть prompt, используем его для генерации ответа
+  //       // Предполагается, что generateLLMResult может принять prompt
+  //       // и использовать его вместо стандартной логики получения dangerousElements
+  //       // Это потребует модификации llmServer.generateLLMResult
+  //       llmServer.generateLLMResult(null, socket.id, prompt); // Передаем prompt
+  //     } else {
+  //       // Стандартная логика, если prompt не предоставлен
+  //       const result = llmServer.getResult(fileName);
+  //       if (result.success && result.result) {
+  //         socket.emit('llm-complete', { result: result.result });
+  //       } else {
+  //         const dangerousElements = await getAllVocabularyFilled(fileName, "vocabulary", 900);
+  //         if (dangerousElements.length > 0) {
+  //           let dangerousElementsData = [];
+  //           for (const element of dangerousElements) {
+  //             await getIfcProperties(element.globalid).then(properties => {
+  //               element.properties = properties;
+  //             });
+  //             await getIfcRelationships(element.globalid).then(relationships => {
+  //               element.relationships = relationships;
+  //             });
+  //             dangerousElementsData.push(element);
+  //           }
+  //           llmServer.generateLLMResult(dangerousElementsData, socket.id);
+  //         } else {
+  //           socket.emit('llm-error', { message: 'No dangerous elements found' });
+  //         }
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error(`[SOCKET.IO] Error processing request from client ${socket.id}:`, error);
+  //     socket.emit('llm-error', { message: error.message });
+  //   }
+  // });
   
   // Обработчик отключения клиента
   socket.on('disconnect', () => {
@@ -552,15 +552,15 @@ app.post('/add-command', async (req, res) => {
     // Проверяем, что базовая команда является валидным кодом
     const availableCodes = getAvailableCodes();
     if (!availableCodes.includes(baseCommand)) {
-      await streamChatCompletion(
-        baseCommand,
-        (chunk) => {
-          llmResponse += chunk;
-        }
-      );
-      console.log('LLM Response:', llmResponse); 
+      // await streamChatCompletion(
+      //   baseCommand,
+      //   (chunk) => {
+      //     llmResponse += chunk;
+      //   }
+      // );
+      // console.log('LLM Response:', llmResponse); 
       return res.status(200).json({ 
-        llmResponse: llmResponse,
+        warning: `Неизвестная команда: ${baseCommand}`,
       });
       // Добавлено для отладки
       // return res.status(400).json({ 
