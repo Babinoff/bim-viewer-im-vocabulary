@@ -55,6 +55,7 @@ export class LLMClient {
             // Создаем новую запись для финального JSON результата
             window.llmLogger.log('llm', result.message.split("title")[1], 'llm-response');
           }
+          this.highlightLLMResults(["2mBj9dlvnE59AN5tSkDHdH"], modelID, warningMaterial);
           const finalResult = await this.getLlmResult(fileName);
           console.log('[LLM-CLIENT] LLM result received via HTTP:', JSON.stringify(finalResult));
           // Обработка полного результата и подсветка опасных элементов

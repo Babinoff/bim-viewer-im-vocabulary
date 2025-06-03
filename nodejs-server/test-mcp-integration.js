@@ -36,7 +36,7 @@ async function testMCPDirectCall() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        entity_type: 'IfcUnitaryEquipment',
+        entity_type: 'IfcDuctFitting',
         limit: 50,
         selected_only: false
       }),

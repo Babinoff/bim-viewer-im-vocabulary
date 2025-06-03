@@ -597,11 +597,11 @@ btnExecuteCommand.onclick = async function() {
 
 
       // Запускаем LLM проверку для получения ответа
-      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, testPrompt);
+      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
 
       // if (window.llmLogger) {
       //   window.llmLogger.logClientAction(`Отправка заявки: ${prompt}`);
-        window.llmLogger.logLLMResponse(`Заявка отправлена: ${testPrompt}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${prompt}`);
       // }
 
       return;

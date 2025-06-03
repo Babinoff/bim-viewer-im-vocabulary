@@ -122592,6 +122592,7 @@ class LLMClient {
             // Создаем новую запись для финального JSON результата
             window.llmLogger.log('llm', result.message.split("title")[1], 'llm-response');
           }
+          this.highlightLLMResults(["2mBj9dlvnE59AN5tSkDHdH"], modelID, warningMaterial);
           const finalResult = await this.getLlmResult(fileName);
           console.log('[LLM-CLIENT] LLM result received via HTTP:', JSON.stringify(finalResult));
           // Обработка полного результата и подсветка опасных элементов
@@ -123985,11 +123986,11 @@ btnExecuteCommand.onclick = async function() {
 
 
       // Запускаем LLM проверку для получения ответа
-      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, testPrompt);
+      _llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
 
       // if (window.llmLogger) {
       //   window.llmLogger.logClientAction(`Отправка заявки: ${prompt}`);
-        window.llmLogger.logLLMResponse(`Заявка отправлена: ${testPrompt}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${prompt}`);
       // }
 
       return;
