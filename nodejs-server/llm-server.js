@@ -65,26 +65,45 @@ class LLMServer {
   }
   
   // Генерация результата через LLM
-  async generateLLMResult(dangerousElementsData) {
+  async generateLLMResult(dangerousElementsData, socketId = null) {
     try {
       console.log(`[LLM-SERVER] Generating LLM result for data`, dangerousElementsData);
       const prompt = `Привышение пороговых величин для датчиков оборудования, сопутсвующуя информация: ${JSON.stringify(dangerousElementsData)} .`;
       console.log(prompt);
       let llmResponse = "";
+      
+      // Получаем ссылку на io из модуля server.js
+      const io = require('./server').io;
+      
       await streamChatCompletion(
         prompt,
         (chunk) => {
-          process.stdout.write(chunk)
+          process.stdout.write(chunk);
           llmResponse += chunk;
+          
+          // Отправляем каждый чанк через WebSocket, если есть socketId
+          if (io && socketId) {
+            io.to(socketId).emit('llm-chunk', { chunk });
+          } else if (io) {
+            // Если нет конкретного socketId, отправляем всем подключенным клиентам
+            io.emit('llm-chunk', { chunk });
+          }
         }
       );
-      // console.log('LLM Response:', llmResponse); 
+      
       console.log('[LLM-SERVER] LLM response received, length:', llmResponse ? llmResponse.length : 0);
       const responseParts = llmResponse.split("</think>")
       const result = {
         think: responseParts[0],
         message: responseParts[1]
       };
+      
+      // Отправляем полный результат через WebSocket
+      if (io && socketId) {
+        io.to(socketId).emit('llm-complete', { result });
+      } else if (io) {
+        io.emit('llm-complete', { result });
+      }
       
       console.log('[LLM-SERVER] LLM result generated successfully');
       return result;

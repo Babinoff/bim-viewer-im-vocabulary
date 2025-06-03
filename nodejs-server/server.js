@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const { create } = require('xmlbuilder2');
 const fs = require('fs').promises;
+const http = require('http');
+const { Server } = require('socket.io');
 const { 
   getDatabaseInfo, 
   createDatabase, 
@@ -27,7 +29,19 @@ require('dotenv').config();
 const { chatWithModel, streamChatCompletion } = require('./llm-services');
 
 const app = express();
-const port = 4000;
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  }
+});
+// Получаем порт из аргументов командной строки или используем 4000 по умолчанию
+const port = process.argv.find(arg => arg.startsWith('--port=')) 
+  ? parseInt(process.argv.find(arg => arg.startsWith('--port=')).split('=')[1]) 
+  : 4000;
+
+console.log(`Using port: ${port}`);
 
 const apiKey = process.env.MISTRAL_API_KEY;
 const agentId = process.env.MISTRAL_AGENT_KSI;
@@ -441,6 +455,60 @@ app.get('/get-llm-response', async (req, res) => {
 // Импортируем LLM сервер
 const llmServer = require('./llm-server');
 
+// Экспортируем io для использования в других модулях
+module.exports.io = io;
+
+// Настройка обработчиков событий Socket.IO
+io.on('connection', (socket) => {
+  console.log(`[SOCKET.IO] Client connected: ${socket.id}`);
+  
+  // Обработчик запроса на получение LLM результатов
+  socket.on('request-llm-results', async (data) => {
+    try {
+      const { fileName } = data;
+      console.log(`[SOCKET.IO] Client ${socket.id} requested LLM results for ${fileName}`);
+      
+      // Получаем результаты LLM
+      const result = llmServer.getResult(fileName);
+      
+      // Если результаты уже есть, отправляем их клиенту
+      if (result.success && result.result) {
+        socket.emit('llm-complete', { result: result.result });
+      } else {
+        // Если результатов нет, запускаем новую проверку с указанием socketId
+        // для отправки результатов в реальном времени
+        const dangerousElements = await getAllVocabularyFilled(fileName, "vocabulary", 900);
+        
+        if (dangerousElements.length > 0) {
+          let dangerousElementsData = [];
+          for (const element of dangerousElements) {
+            await getIfcProperties(element.globalid).then(properties => {
+              element.properties = properties;
+            });
+            await getIfcRelationships(element.globalid).then(relationships => {
+              element.relationships = relationships;
+            });
+            dangerousElementsData.push(element);
+          }
+          
+          // Запускаем генерацию LLM результата с указанием socketId
+          llmServer.generateLLMResult(dangerousElementsData, socket.id);
+        } else {
+          socket.emit('llm-error', { message: 'No dangerous elements found' });
+        }
+      }
+    } catch (error) {
+      console.error(`[SOCKET.IO] Error processing request from client ${socket.id}:`, error);
+      socket.emit('llm-error', { message: error.message });
+    }
+  });
+  
+  // Обработчик отключения клиента
+  socket.on('disconnect', () => {
+    console.log(`[SOCKET.IO] Client disconnected: ${socket.id}`);
+  });
+});
+
 // Endpoint для выполнения команд генерации данных
 app.post('/add-command', async (req, res) => {
   try {
@@ -686,7 +754,8 @@ app.post('/generate-person-responsible-llm', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
+  console.log('Socket.IO server is ready for connections');
 });
 

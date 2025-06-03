@@ -342,6 +342,114 @@ async function getLlmResult(fileName) {
   }
 }
 
+// Функция для подключения к WebSocket серверу
+let socket = null;
+let socketCallbacks = {
+  onChunk: null,
+  onComplete: null,
+  onError: null
+};
+
+/**
+ * Подключиться к WebSocket серверу
+ * @param {Object} callbacks - Объект с колбэками для обработки событий
+ * @returns {Object} - Объект сокета
+ */
+function connectToWebSocket(callbacks = {}) {
+  try {
+    // Если сокет уже существует и подключен, используем его
+    if (socket && socket.connected) {
+      console.log('WebSocket already connected');
+      
+      // Обновляем колбэки
+      if (callbacks.onChunk) socketCallbacks.onChunk = callbacks.onChunk;
+      if (callbacks.onComplete) socketCallbacks.onComplete = callbacks.onComplete;
+      if (callbacks.onError) socketCallbacks.onError = callbacks.onError;
+      
+      return socket;
+    }
+    
+    // Импортируем socket.io-client динамически
+    const script = document.createElement('script');
+    script.src = 'https://cdn.socket.io/4.7.4/socket.io.min.js';
+    script.integrity = 'sha384-Gr6Lu2Ajx28mzwyVR8CFkULdCU7kMlZ9UthllibdOSo6qAiN+yXNHqtgdTvFXMT4';
+    script.crossOrigin = 'anonymous';
+    
+    // Ждем загрузки скрипта
+    return new Promise((resolve, reject) => {
+      script.onload = () => {
+        try {
+          // Создаем новое подключение
+          socket = io(API_BASE_URL);
+          
+          // Сохраняем колбэки
+          if (callbacks.onChunk) socketCallbacks.onChunk = callbacks.onChunk;
+          if (callbacks.onComplete) socketCallbacks.onComplete = callbacks.onComplete;
+          if (callbacks.onError) socketCallbacks.onError = callbacks.onError;
+          
+          // Настраиваем обработчики событий
+          socket.on('connect', () => {
+            console.log('WebSocket connected, socket ID:', socket.id);
+          });
+          
+          socket.on('llm-chunk', (data) => {
+            console.log('Received LLM chunk:', data.chunk);
+            if (socketCallbacks.onChunk) socketCallbacks.onChunk(data.chunk);
+          });
+          
+          socket.on('llm-complete', (data) => {
+            console.log('Received complete LLM result');
+            if (socketCallbacks.onComplete) socketCallbacks.onComplete(data.result);
+          });
+          
+          socket.on('llm-error', (data) => {
+            console.error('LLM error:', data.message);
+            if (socketCallbacks.onError) socketCallbacks.onError(data.message);
+          });
+          
+          socket.on('disconnect', () => {
+            console.log('WebSocket disconnected');
+          });
+          
+          resolve(socket);
+        } catch (error) {
+          console.error('Error initializing socket.io:', error);
+          reject(error);
+        }
+      };
+      
+      script.onerror = (error) => {
+        console.error('Error loading socket.io script:', error);
+        reject(error);
+      };
+      
+      document.head.appendChild(script);
+    });
+  } catch (error) {
+    console.error('Error in connectToWebSocket:', error);
+    throw error;
+  }
+}
+
+/**
+ * Запросить результаты LLM через WebSocket
+ * @param {string} fileName - имя файла модели
+ * @returns {Promise<void>}
+ */
+async function requestLlmResultsViaWebSocket(fileName) {
+  try {
+    if (!socket || !socket.connected) {
+      throw new Error('WebSocket not connected. Call connectToWebSocket first.');
+    }
+    
+    console.log('Requesting LLM results via WebSocket for file:', fileName);
+    socket.emit('request-llm-results', { fileName });
+  } catch (error) {
+    console.error('Error requesting LLM results via WebSocket:', error);
+    throw error;
+  }
+}
+
 export default {
   getModelInfo,
   createVocabulary,
@@ -351,9 +459,10 @@ export default {
   getVocabulary,
   getFromAi,
   getAllKsiExpressIds,
-  // getAllVocabularyFilled,
   executeCommand,
   startLlmCheck,
   stopLlmCheck,
   getLlmResult,
+  connectToWebSocket,
+  requestLlmResultsViaWebSocket
 };
