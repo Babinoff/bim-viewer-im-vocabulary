@@ -1,3 +1,5 @@
+const constructVocabularyBool = true;
+
 import { Color } from "three";
 import { IfcViewerAPI } from "web-ifc-viewer";
 import api from './api-service';
@@ -72,12 +74,13 @@ const currentProjectID = url.searchParams.get("id"); //bimserver project id - us
 const scene = _viewer.context.getScene(); //for showing/hiding categories
 
 _viewer.context.renderer.postProduction.active = false;
-_viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
-  [IFCSPACE]: false  
-}); 
+// _viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
+//   [IFCSPACE]: false  
+// }); 
 
 _viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
-  [IFCAIRTERMINAL]: true  // Явно включить  
+  [IFCAIRTERMINAL]: true,
+  [IFCSPACE]: false    // Явно включить  
 });
 
 _viewer.IFC.loader.ifcManager.applyWebIfcConfig({  
@@ -126,6 +129,13 @@ const _customKsiMaterial =  new MeshLambertMaterial({
   depthTest: false
 });
 
+const _transparentMaterial =  new MeshLambertMaterial({
+  color: 0x00ff00,  // Зелёный цвет
+  transparent: true,  // Отключаем прозрачность (по умолчанию false)
+  opacity: 0.1,         // Полная непрозрачность (по умолчанию 1)
+  depthTest: true
+});
+
 for (let proj of projects) {
   if (proj.id === currentProjectID) {
     _fileName = proj.name;
@@ -152,8 +162,6 @@ const guiManager = new GUIManager(
   categories
 );
 
-const constructVocabularyBool = true;
-
 async function loadIfc(url) {
   // Load the model
   _model = await _viewer.IFC.loadIfcUrl(url);
@@ -170,7 +178,13 @@ async function loadIfc(url) {
   const structure = await _viewer.IFC.loader.ifcManager.getSpatialStructure(_model.modelID);
   // Рекурсивный подсчёт элементов в структуре
   let highlightIds = []
+  let transparentIds = []
   function countElements(item) {
+    // console.log("countElements item", item)
+    // if (item.type == "IFCSPACE"){
+    //   transparentIds.push(item.expressID)
+    //   console.log("countElements item.type == IFCSPACE", item) //помогает показать невидимые элементы
+    // }
     highlightIds.push(item.expressID)
     _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds); //помогает показать невидимые элементы
     let count = item.children.length;
@@ -180,6 +194,7 @@ async function loadIfc(url) {
     return count;
   }
   _numberOfElements = countElements(structure);
+  // createSubsetForColor(transparentIds, _transparentMaterial, "transparentIds")
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   
   // Используем пакетную отправку вместо индивидуальных запросов
@@ -452,7 +467,7 @@ btnAllKsi.onclick = async function() {
 }
 
 function createSubsetForColor(highlightIds, material, subsetName){
-  // console.log("createSubsetForColor(highlightIds, material, subsetName)", highlightIds, material, subsetName)
+  console.log("createSubsetForColor(highlightIds, material, subsetName)", highlightIds, material, subsetName)
   const subset = _viewer.IFC.loader.ifcManager.createSubset({  
     modelID: _model.modelID,  
     ids: highlightIds,  
@@ -596,10 +611,10 @@ const btnLLM = document.getElementById("btnLLM");
 
 btnLLM.onclick = async function() {
   try {
-    if (window.llmLogger) {
-      window.llmLogger.logClientAction('LLM button clicked');
-      window.llmLogger.logClientAction(`Current file name: ${_fileName}`);
-    }
+    // if (window.llmLogger) {
+    //   window.llmLogger.logClientAction('LLM button clicked');
+    //   window.llmLogger.logClientAction(`Current file name: ${_fileName}`);
+    // }
     
     if (!_fileName) {
       if (window.llmLogger) {
@@ -611,44 +626,20 @@ btnLLM.onclick = async function() {
     
     // Инициализируем LLM клиент если еще не создан
     if (!llmClient) {
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Initializing LLM client');
-      }
       llmClient = new LLMClient(apiService, _viewer);
     }
     
     if (llmClient.isCheckRunning()) {
-      // Останавливаем проверку
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Stopping LLM check');
-      }
       apiService.stopLlmCheck();
       llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';
-      
-      // Скрываем окно логов при остановке
-      if (window.llmLogger) {
-        window.llmLogger.hideLogWindow();
-      }
+      window.llmLogger.hideLogWindow();
     } 
     else {
-      // Запускаем проверку
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Starting LLM check');
-      }
       btnLLM.style.backgroundColor = 'red';
       btnLLM.textContent = 'LLM (активно)';
-      
-      // Показываем окно логов при запуске
-      if (window.llmLogger) {
-        window.llmLogger.showLogWindow();
-      }
-      
-      // Запускаем LLM проверку через новый клиент
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Starting LLM check for file: ${_fileName}`);
-      }
+      window.llmLogger.showLogWindow();
       await llmClient.startCheck(_fileName, _modelID, _warningMaterial);
     }
   } catch (error) {

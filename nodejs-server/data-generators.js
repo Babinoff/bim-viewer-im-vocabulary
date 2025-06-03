@@ -175,6 +175,11 @@ const dataGenerators = {
     return code;
   },
   
+  'vocabulary': () => {
+    // Генерируем случайное число от 1 до 1000 для поля vocabulary
+    return Math.floor(Math.random() * 1000) + 1;
+  },
+  
   'RUS_PersonResponsibleForOperation': async (globalId, ifcType = null) => {
     // Если передан IFC тип, получаем список globalid для этого типа
     if (ifcType && !globalId) {

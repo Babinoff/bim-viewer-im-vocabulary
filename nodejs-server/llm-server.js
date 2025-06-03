@@ -18,11 +18,9 @@ class LLMServer {
       console.log('[LLM-SERVER] Starting LLM check process', fileName, new Date().toISOString());
       this.isRunning = true;
       this.performCheck(fileName);
-      return { success: true, message: 'LLM check started.' };
+      return 'LLM check started.';
     } catch (error) {
-      console.error('[LLM-SERVER] CRITICAL ERROR starting LLM check:', error);
-      console.error('[LLM-SERVER] Error details:', error.message);
-      console.error('[LLM-SERVER] Error stack:', error.stack);
+      console.error('[LLM-SERVER] ERROR starting LLM check:', error);
       this.isRunning = false;
       throw error;
     }
@@ -63,7 +61,6 @@ class LLMServer {
       }
     } catch (error) {
       console.error('[LLM-SERVER] Error during check:', error);
-      console.error('[LLM-SERVER] Error details:', error.message);
     }
   }
   
@@ -83,9 +80,10 @@ class LLMServer {
       );
       // console.log('LLM Response:', llmResponse); 
       console.log('[LLM-SERVER] LLM response received, length:', llmResponse ? llmResponse.length : 0);
-      
+      const responseParts = llmResponse.split("</think>")
       const result = {
-        message: llmResponse
+        think: responseParts[0],
+        message: responseParts[1]
       };
       
       console.log('[LLM-SERVER] LLM result generated successfully');
@@ -95,7 +93,10 @@ class LLMServer {
       
       // Fallback к тестовому результату в случае ошибки
       const fallbackResult = {
-        message: `Ошибка при обращении к LLM. Найдены элементы с высоким значением vocabulary (>900):\n${dangerousElements.map(id => `- GlobalID: ${id}`).join('\n')}\n\nВсего элементов: ${dangerousElements.length}`,
+        message: `Ошибка при обращении к LLM. 
+        Найдены элементы с высоким значением vocabulary (>900):
+        \n${dangerousElementsData.map(id => `- GlobalID: ${id.globalid}`).join('\n')}\n\n
+        Всего элементов: ${dangerousElementsData.length}`,
       };
       
       console.log('[LLM-SERVER] Fallback result generated');
@@ -129,20 +130,20 @@ class LLMServer {
       
       if (result) {
         console.log('[LLM-SERVER] Result found for file:', fileName);
-        console.log('[LLM-SERVER] Result details:');
-        console.log('[LLM-SERVER] - Dangerous elements count:', result.dangerousElements ? result.dangerousElements.length : 0);
+        // console.log('[LLM-SERVER] Result details:');
+        // console.log('[LLM-SERVER] - Dangerous elements count:', result.dangerousElements ? result.dangerousElements.length : 0);
         
-        if (result.dangerousElements && result.dangerousElements.length > 0) {
-          result.dangerousElements.forEach((item, index) => {
-            console.log(`[LLM-SERVER] - Element ${index + 1}: GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${item.vocabulary}`);
-          });
-        }
+        // if (result.dangerousElements && result.dangerousElements.length > 0) {
+        //   result.dangerousElements.forEach((item, index) => {
+        //     console.log(`[LLM-SERVER] - Element ${index + 1}: GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${item.vocabulary}`);
+        //   });
+        // }
         
-        console.log('[LLM-SERVER] - Message length:', result.message ? result.message.length : 0);
+        // console.log('[LLM-SERVER] - Message length:', result.message ? result.message.length : 0);
         
-        // Очищаем результат после получения
-        delete this.results[fileName];
-        console.log('[LLM-SERVER] Result cleared after retrieval');
+        // // Очищаем результат после получения
+        // delete this.results[fileName];
+        // console.log('[LLM-SERVER] Result cleared after retrieval');
         
         return { success: true, result: result };
       } else {

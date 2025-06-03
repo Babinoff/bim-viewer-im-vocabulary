@@ -47,6 +47,11 @@ const elemsParamsFileId = process.env.MISTRAL_OCR_FILE_ELEMS_PARAMS;
 
 app.use(cors());
 app.use(express.json());
+app.use(cors({
+  origin: '*',
+  methods: ['POST', 'GET']
+}));
+
 
 app.get('/get-model-info', async (req, res) => {
   try {
@@ -224,27 +229,6 @@ app.get('/get-vocabulary', async (req, res) => {
   }
 });
 
-// app.get('/get-all-vocabulary-filled', async (req, res) => {
-//   try {
-//     console.log("/get-all-vocabulary-filled req.query", req.query);
-//     if (!req.query || !req.query.fileName) {
-//       const errorMessage = 'Invalid data format. Required fields: fileName';
-//       console.error("/get-all-vocabulary-filled", errorMessage);
-//       return res.status(400).json({
-//         error: errorMessage
-//       });
-//     }
-
-//     let allFilledVocabulary = await getAllVocabularyFilled(req.query.fileName);
-//     console.log("[0] filled vocabulary:", allFilledVocabulary[0]);
-
-//     res.json(allFilledVocabulary);
-//   } catch (error) {
-//     console.error('Error:', error);
-//     res.status(500).json({ error: 'Internal server error' });
-//   }
-// });
-
 app.get('/get-ksi-from-ai', async (req, res) => {
   try {
     // Новая валидация данных
@@ -351,7 +335,7 @@ app.get('/get-all-ksi-express-id', async (req, res) => {
     // Новая валидация данных
     console.log("/get-all-ksi-express-id", req.query)
     if (!req.query || !req.query.fileName) {
-      const errorMessage = 'Invalid data format. Required fields: globalid fileName' 
+      const errorMessage = 'Invalid data format. Required fields: fileName' 
       console.error("/get-all-ksi-express-id", errorMessage);
       return res.status(400).json({ 
         error: errorMessage
@@ -368,60 +352,29 @@ app.get('/get-all-ksi-express-id', async (req, res) => {
   }
 });
 
-app.get('/get-llm-response', async (req, res) => {
+// Эндпоинт для запуска LLM-проверки
+app.get('/llm-start', async (req, res) => {
   try {
-    // Новая валидация данных
-    console.log("/get-llm-response", req.query)
-    if (!req.query || !req.query.fileName || !req.query.prompt) {
-      const errorMessage = 'Invalid data format. Required fields: fileName prompt' 
-      console.error("/get-llm-response", errorMessage);
+    console.log("/llm-start", req.query)
+    if (!req.query || !req.query.fileName) {
+      const errorMessage = 'Invalid data format. Required fields: fileName' 
+      console.error("/llm-start", errorMessage);
       return res.status(400).json({ 
         error: errorMessage
       });
     }
-
-    let llmresponse = await chatWithModel(req.query.prompt)
-    console.log(req.query, llmresponse);
-
-    res.status(200).json({ success: true, llmresponse: llmresponse });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.use(cors({
-  origin: '*',
-  methods: ['POST', 'GET']
-}));
-
-// Импортируем LLM сервер
-const llmServer = require('./llm-server');
-
-// Эндпоинт для запуска LLM-проверки
-app.get('/api/llm-check', async (req, res) => {
-  try {
-    console.log('[LLM-CHECK] LLM check request received', new Date().toISOString(), req.query);
-    
-    const fileName = req.query.fileName;
-    if (!fileName) {
-      console.error('[LLM-CHECK] ERROR: fileName is required');
-      return res.status(400).json({ error: 'fileName is required.' });
-    }
-    
-    console.log('[LLM-CHECK] Starting LLM check for file:', fileName);
-    const result = await llmServer.startCheck(fileName);
-    
+    console.log('[LLM-CHECK] Starting LLM check for file:', req.query.fileName);
+    const result = await llmServer.startCheck(req.query.fileName);
     console.log('[LLM-CHECK] LLM check started successfully');
-    res.status(200).json(result);
+    res.status(200).json({ message: result });
   } catch (error) {
     console.error('[LLM-CHECK] CRITICAL ERROR starting LLM check:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
 
 // Эндпоинт для остановки LLM-проверки
-app.get('/api/llm-stop', (req, res) => {
+app.get('/llm-stop', (req, res) => {
   try {
     console.log('[LLM-STOP] LLM stop request received');
     console.log('[LLM-STOP] Timestamp:', new Date().toISOString());
@@ -437,11 +390,9 @@ app.get('/api/llm-stop', (req, res) => {
 });
 
 // Эндпоинт для получения результатов LLM
-app.get('/api/llm-results', (req, res) => {
+app.get('/llm-results', (req, res) => {
   try {
-    console.log('[LLM-RESULTS] LLM results request received');
-    console.log('[LLM-RESULTS] Timestamp:', new Date().toISOString());
-    console.log('[LLM-RESULTS] Query params:', req.query);
+    console.log('[LLM-RESULTS] LLM results request received', req.query);
     
     const fileName = req.query.fileName;
     if (!fileName) {
@@ -464,6 +415,31 @@ app.get('/api/llm-results', (req, res) => {
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
+
+
+app.get('/get-llm-response', async (req, res) => {
+  try {
+    // Новая валидация данных
+    console.log("/get-llm-response", req.query)
+    if (!req.query || !req.query.fileName || !req.query.prompt) {
+      const errorMessage = 'Invalid data format. Required fields: fileName prompt' 
+      console.error("/get-llm-response", errorMessage);
+      return res.status(400).json({ 
+        error: errorMessage
+      });
+    }
+
+    let llmresponse = await chatWithModel(req.query.prompt)
+    console.log(req.query, llmresponse);
+
+    res.status(200).json({ success: true, llmresponse: llmresponse });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+// Импортируем LLM сервер
+const llmServer = require('./llm-server');
 
 // Endpoint для выполнения команд генерации данных
 app.post('/add-command', async (req, res) => {
@@ -586,7 +562,6 @@ app.post('/add-command', async (req, res) => {
     // Применяем команду к конкретным элементам
     for (const globalid of targetGlobalIds) {
       try {
-        // Добавляем await, так как generateDataByCode может быть асинхронной функцией
         const generatedValue = await generateDataByCode(baseCommand, decodeURIComponent(globalid), ...commandParams);
         // console.log('Сгенерированное значение:', generatedValue);
         console.log('Тип значения:', typeof generatedValue);
@@ -708,161 +683,6 @@ app.post('/generate-person-responsible-llm', async (req, res) => {
       error: 'Internal server error',
       details: error.message
     });
-  }
-});
-
-
-app.post('/api/llm-check', async (req, res) => {
-  try {
-    const { fileName } = req.body;
-    
-    if (!fileName) {
-      console.log('[LLM-CHECK] ERROR: fileName parameter is missing');
-      return res.status(400).json({ success: false, error: 'fileName is required' });
-    }
-    
-    console.log('[LLM-CHECK] Starting LLM check for file:', fileName);
-    console.log('[LLM-CHECK] Timestamp:', new Date().toISOString());
-    
-    // Получаем данные vocabulary для файла
-    console.log('[LLM-CHECK] Fetching vocabulary data for file:', fileName);
-    const vocabularyData = await getVocabularyData(fileName);
-    
-    if (!vocabularyData || vocabularyData.length === 0) {
-      console.log('[LLM-CHECK] WARNING: No vocabulary data found for file:', fileName);
-      return res.json({ success: true, message: 'No vocabulary data found' });
-    }
-    
-    console.log('[LLM-CHECK] Vocabulary data loaded. Total records:', vocabularyData.length);
-    
-    // Ищем элементы с vocabulary > 900
-    console.log('[LLM-CHECK] Searching for dangerous elements (vocabulary > 900)...');
-    const dangerousElements = [];
-    let checkedCount = 0;
-    
-    for (const item of vocabularyData) {
-      checkedCount++;
-      if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-        dangerousElements.push(item.globalid);
-        console.log(`[LLM-CHECK] Found dangerous element: GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${item.vocabulary}`);
-      }
-    }
-    
-    console.log(`[LLM-CHECK] Analysis complete. Checked ${checkedCount} elements, found ${dangerousElements.length} dangerous elements`);
-    
-    if (dangerousElements.length === 0) {
-      console.log('[LLM-CHECK] No dangerous elements found. Analysis complete.');
-      return res.json({ success: true, message: 'No dangerous elements found' });
-    }
-    
-    console.log('[LLM-CHECK] Starting background LLM analysis...');
-    
-    // Запускаем LLM анализ в фоновом режиме
-    setTimeout(async () => {
-      try {
-        console.log('[LLM-BACKGROUND] Background LLM analysis started for', fileName);
-        console.log('[LLM-BACKGROUND] Processing', dangerousElements.length, 'dangerous elements');
-        
-        if (dangerousElements.length > 0) {
-          // Собираем данные об опасных элементах
-          console.log('[LLM-BACKGROUND] Collecting detailed data for dangerous elements...');
-          const dangerousElementsData = [];
-          
-          for (const item of vocabularyData) {
-            if (item.vocabulary && parseInt(item.vocabulary) > 900) {
-              const elementData = {
-                globalid: item.globalid,
-                expressID: item.expressID,
-                vocabulary: item.vocabulary
-              };
-              dangerousElementsData.push(elementData);
-              console.log(`[LLM-BACKGROUND] Collected element data:`, elementData);
-            }
-          }
-          
-          console.log('[LLM-BACKGROUND] Total dangerous elements data collected:', dangerousElementsData.length);
-          
-          // Для тестирования без LLM - просто формируем результат
-          console.log('[LLM-BACKGROUND] Generating test result (LLM integration disabled)...');
-          // const testResult = {
-          //   message: `Найдены элементы с высоким значением vocabulary (>900):\n${dangerousElements.map(id => `- GlobalID: ${id}`).join('\n')}\n\nВсего элементов: ${dangerousElements.length}`,
-          //   dangerousElements: dangerousElementsData
-          // };
-          
-          // Раскомментируйте следующие строки для работы с реальным LLM:
-          console.log('[LLM-BACKGROUND] Preparing LLM prompt...');
-          const prompt = `Проанализируй элементы с globalid: ${dangerousElements.join(', ')}. Получи информацию о каждом элементе и связанных пространствах.`;
-          console.log('[LLM-BACKGROUND] LLM prompt:', prompt);
-          console.log('[LLM-BACKGROUND] Calling LLM service...');
-          const llmResponse = await chatWithModel(prompt);
-          console.log('[LLM-BACKGROUND] LLM response received:', llmResponse);
-          llmResults[fileName] = {
-            message: llmResponse,
-            dangerousElements: dangerousElementsData
-          };
-          
-          // Для тестирования сохраняем тестовый результат
-          // llmResults[fileName] = llmResponse;
-          console.log('[LLM-BACKGROUND] Result stored for file:', fileName);
-          console.log('[LLM-BACKGROUND] Stored result:', JSON.stringify(llmResponse, null, 2));
-          console.log('[LLM-BACKGROUND] Analysis complete. Results available for retrieval.');
-        }
-      } catch (error) {
-        console.error('[LLM-BACKGROUND] ERROR during background LLM analysis:', error);
-        console.error('[LLM-BACKGROUND] Error stack:', error.stack);
-      }
-    }, 1000);
-    
-    console.log('[LLM-CHECK] Background analysis scheduled. Returning success response.');
-    res.json({ success: true, message: 'LLM check started' });
-  } catch (error) {
-    console.error('[LLM-CHECK] CRITICAL ERROR in LLM check endpoint:', error);
-    console.error('[LLM-CHECK] Error stack:', error.stack);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Эндпоинт для получения результатов LLM
-app.get('/api/llm-results', (req, res) => {
-  try {
-    console.log('[LLM-RESULTS] Client requesting LLM results');
-    console.log('[LLM-RESULTS] Timestamp:', new Date().toISOString());
-    console.log('[LLM-RESULTS] Available result keys:', Object.keys(llmResults));
-    
-    if (Object.keys(llmResults).length === 0) {
-      console.log('[LLM-RESULTS] No results available yet');
-      return res.json({ success: true, results: {} });
-    }
-    
-    // Логируем детали каждого результата
-    for (const [fileName, result] of Object.entries(llmResults)) {
-      console.log(`[LLM-RESULTS] Result for file "${fileName}":`);
-      if (result.dangerousElements) {
-        console.log(`[LLM-RESULTS]   - Dangerous elements count: ${result.dangerousElements.length}`);
-        result.dangerousElements.forEach((element, index) => {
-          console.log(`[LLM-RESULTS]   - Element ${index + 1}: GlobalID=${element.globalid}, ExpressID=${element.expressID}, Vocabulary=${element.vocabulary}`);
-        });
-      }
-      if (result.message) {
-        console.log(`[LLM-RESULTS]   - Message length: ${result.message.length} characters`);
-      }
-    }
-    
-    console.log('[LLM-RESULTS] Sending results to client');
-    res.json({ success: true, results: llmResults });
-    
-    // Очищаем результаты после отправки
-    console.log('[LLM-RESULTS] Clearing results after sending to client');
-    const clearedKeys = Object.keys(llmResults);
-    for (const key in llmResults) {
-      delete llmResults[key];
-    }
-    console.log('[LLM-RESULTS] Cleared result keys:', clearedKeys);
-    console.log('[LLM-RESULTS] Results successfully sent and cleared');
-  } catch (error) {
-    console.error('[LLM-RESULTS] CRITICAL ERROR getting LLM results:', error);
-    console.error('[LLM-RESULTS] Error stack:', error.stack);
-    res.status(500).json({ success: false, error: error.message });
   }
 });
 

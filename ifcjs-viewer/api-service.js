@@ -235,26 +235,6 @@ async function getAllKsiExpressIds(fileName) {
   }
 }
 
-// async function getAllVocabularyFilled(fileName) {
-//   try {
-//     const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
-//       method: 'GET',
-//       headers: {
-//         'Content-Type': 'application/json',
-//       }
-//     });
-    
-//     if (!response.ok) {
-//       throw new Error(`HTTP error! status: ${response.status}`);
-//     }
-    
-//     return await response.json();
-//   } catch (error) {
-//     console.error('Error fetching all filled vocabulary:', error);
-//     throw error;
-//   }
-// }
-
 /**
  * Выполнить команду генерации данных
  * @param {string} fileName - имя файла модели
@@ -293,7 +273,8 @@ async function executeCommand(fileName, command) {
  */
 async function startLlmCheck(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/llm-check?fileName=${fileName}`, {
+    console.log('[CLIENT-LLM] Starting LLM check for file:', fileName);
+    const response = await fetch(`${API_BASE_URL}/llm-start/?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -301,6 +282,7 @@ async function startLlmCheck(fileName) {
     });
 
     if (!response.ok) {
+      console.error('[CLIENT-LLM] ERROR: Response not OK:', response);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -317,7 +299,7 @@ async function startLlmCheck(fileName) {
  */
 async function stopLlmCheck() {
   try {
-    const response = await fetch(`${API_BASE_URL}/llm-check`, {
+    const response = await fetch(`${API_BASE_URL}/llm-stop`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -342,62 +324,20 @@ async function stopLlmCheck() {
  */
 async function getLlmResult(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/llm-results?fileName=${fileName}`, {
+    const response = await fetch(`${API_BASE_URL}/llm-results/?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       }
     });
-
+    console.log("getLlmResult response", response) // Add this line to log the response inf
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error(`HTTP error! status: ${response.status}`);
     }
 
     return await response.json();
   } catch (error) {
     console.error('Error getting LLM result:', error);
-    throw error;
-  }
-}
-
-// Функция для запуска LLM проверки
-export async function startLLMCheck(fileName) {
-  try {
-    console.log('[CLIENT-LLM] Starting LLM check for file:', fileName);
-    console.log('[CLIENT-LLM] Timestamp:', new Date().toISOString());
-    console.log('[CLIENT-LLM] Sending POST request to /api/llm-check');
-    
-    const requestBody = { fileName };
-    console.log('[CLIENT-LLM] Request body:', JSON.stringify(requestBody));
-    
-    const startTime = Date.now();
-    
-    const response = await fetch('/api/llm-check', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-    
-    const requestTime = Date.now() - startTime;
-    console.log('[CLIENT-LLM] Request completed in:', requestTime, 'ms');
-    console.log('[CLIENT-LLM] Response status:', response.status, response.statusText);
-    
-    if (!response.ok) {
-      console.error('[CLIENT-LLM] ERROR: Response not OK:', response.status, response.statusText);
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('[CLIENT-LLM] Response data received:', data);
-    console.log('[CLIENT-LLM] LLM check request completed successfully');
-    
-    return data;
-  } catch (error) {
-    console.error('[CLIENT-LLM] CRITICAL ERROR starting LLM check:', error);
-    console.error('[CLIENT-LLM] Error details:', error.message);
-    console.error('[CLIENT-LLM] Error stack:', error.stack);
     throw error;
   }
 }

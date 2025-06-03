@@ -73,7 +73,7 @@ export class LLMLogger {
     if (this.logWindow) {
       this.logWindow.style.display = 'flex';
       this.isVisible = true;
-      this.log('client', 'LLM Log Window opened');
+      // this.log('client', 'LLM Log Window opened');
     }
   }
 

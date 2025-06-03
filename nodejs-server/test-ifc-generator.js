@@ -12,7 +12,7 @@ async function testIfcGenerator() {
     
     // Тест 2: Вызов с IFC типом (пока с заглушкой)
     console.log('\n=== Тест 2: Вызов с IFC типом ===');
-    const result2 = await generateDataByCode('RUS_PersonResponsibleForOperation', null, 'IFCLIGHTFIXTURE');
+    const result2 = await generateDataByCode('vocabulary', null, 'IFCLIGHTFIXTURE');
     console.log('Результат:', result2);
     
     // Тест 3: Вызов без параметров (случайная генерация)

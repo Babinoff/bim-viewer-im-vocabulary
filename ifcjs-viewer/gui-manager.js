@@ -259,14 +259,15 @@ export class GUIManager {
     try {
       // Собираем все элементы из всех узлов
       let processedNodes = 0;
+      console.log("nodes.length", processedNodes, nodes.length);
       for (const node of nodes) {
         await this.collectVocabularyElements(node, allElements);
         processedNodes++;
-        
+        console.log("nodes.length", processedNodes, nodes.length);
         // Обновляем прогресс сбора элементов (50% от общего прогресса)
-        const progress = (processedNodes / nodes.length) * 50;
-        progressBar.style.width = `${progress}%`;
-        progressText.textContent = `${Math.round(progress)}%`;
+        // const progress = (processedNodes / nodes.length) * 50;
+        // progressBar.style.width = `${progress}%`;
+        // progressText.textContent = `${Math.round(progress)}%`;
       }
       
       console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
@@ -274,16 +275,16 @@ export class GUIManager {
       // Отправляем все элементы пакетно
       const result = await this.api.addVocabularyBatch(this.fileName, allElements);
       
-      // Устанавливаем прогресс в 100%
-      progressBar.style.width = '100%';
-      progressText.textContent = '100%';
+      // // Устанавливаем прогресс в 100%
+      // progressBar.style.width = '100%';
+      // progressText.textContent = '100%';
       
-      // Скрываем прогресс-бар через секунду
-      setTimeout(() => {
-        progressOverlay.style.display = 'none';
-        progressBar.style.width = '0%';
-        progressText.textContent = '0%';
-      }, 1000);
+      // // Скрываем прогресс-бар через секунду
+      // setTimeout(() => {
+      //   progressOverlay.style.display = 'none';
+      //   progressBar.style.width = '0%';
+      //   progressText.textContent = '0%';
+      // }, 1000);
       
       console.log('Пакетное создание словаря завершено:', result);
       return result;

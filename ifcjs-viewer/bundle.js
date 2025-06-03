@@ -121688,26 +121688,6 @@ async function getAllKsiExpressIds(fileName) {
   }
 }
 
-// async function getAllVocabularyFilled(fileName) {
-//   try {
-//     const response = await fetch(`${API_BASE_URL}/get-all-vocabulary-filled/?fileName=${fileName}`, {
-//       method: 'GET',
-//       headers: {
-//         'Content-Type': 'application/json',
-//       }
-//     });
-    
-//     if (!response.ok) {
-//       throw new Error(`HTTP error! status: ${response.status}`);
-//     }
-    
-//     return await response.json();
-//   } catch (error) {
-//     console.error('Error fetching all filled vocabulary:', error);
-//     throw error;
-//   }
-// }
-
 /**
  * Выполнить команду генерации данных
  * @param {string} fileName - имя файла модели
@@ -121746,7 +121726,8 @@ async function executeCommand(fileName, command) {
  */
 async function startLlmCheck(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/llm-check?fileName=${fileName}`, {
+    console.log('[CLIENT-LLM] Starting LLM check for file:', fileName);
+    const response = await fetch(`${API_BASE_URL}/llm-start/?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -121754,6 +121735,7 @@ async function startLlmCheck(fileName) {
     });
 
     if (!response.ok) {
+      console.error('[CLIENT-LLM] ERROR: Response not OK:', response);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -121770,7 +121752,7 @@ async function startLlmCheck(fileName) {
  */
 async function stopLlmCheck() {
   try {
-    const response = await fetch(`${API_BASE_URL}/llm-check`, {
+    const response = await fetch(`${API_BASE_URL}/llm-stop`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -121795,15 +121777,15 @@ async function stopLlmCheck() {
  */
 async function getLlmResult(fileName) {
   try {
-    const response = await fetch(`${API_BASE_URL}/llm-results?fileName=${fileName}`, {
+    const response = await fetch(`${API_BASE_URL}/llm-results/?fileName=${fileName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       }
     });
-
+    console.log("getLlmResult response", response); // Add this line to log the response inf
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      console.error(`HTTP error! status: ${response.status}`);
     }
 
     return await response.json();
@@ -122090,14 +122072,15 @@ class GUIManager {
     try {
       // Собираем все элементы из всех узлов
       let processedNodes = 0;
+      console.log("nodes.length", processedNodes, nodes.length);
       for (const node of nodes) {
         await this.collectVocabularyElements(node, allElements);
         processedNodes++;
-        
+        console.log("nodes.length", processedNodes, nodes.length);
         // Обновляем прогресс сбора элементов (50% от общего прогресса)
-        const progress = (processedNodes / nodes.length) * 50;
-        progressBar.style.width = `${progress}%`;
-        progressText.textContent = `${Math.round(progress)}%`;
+        // const progress = (processedNodes / nodes.length) * 50;
+        // progressBar.style.width = `${progress}%`;
+        // progressText.textContent = `${Math.round(progress)}%`;
       }
       
       console.log(`Собрано ${allElements.length} элементов для пакетной отправки`);
@@ -122105,16 +122088,16 @@ class GUIManager {
       // Отправляем все элементы пакетно
       const result = await this.api.addVocabularyBatch(this.fileName, allElements);
       
-      // Устанавливаем прогресс в 100%
-      progressBar.style.width = '100%';
-      progressText.textContent = '100%';
+      // // Устанавливаем прогресс в 100%
+      // progressBar.style.width = '100%';
+      // progressText.textContent = '100%';
       
-      // Скрываем прогресс-бар через секунду
-      setTimeout(() => {
-        progressOverlay.style.display = 'none';
-        progressBar.style.width = '0%';
-        progressText.textContent = '0%';
-      }, 1000);
+      // // Скрываем прогресс-бар через секунду
+      // setTimeout(() => {
+      //   progressOverlay.style.display = 'none';
+      //   progressBar.style.width = '0%';
+      //   progressText.textContent = '0%';
+      // }, 1000);
       
       console.log('Пакетное создание словаря завершено:', result);
       return result;
@@ -122429,15 +122412,15 @@ class LLMClient {
     this.viewer = viewer;
     this.checkInterval = null;
     this.isRunning = false;
-    this.intervalDelay = 300000; // 300 секунд
+    this.intervalDelay = 5000; // 50 секунд
   }
 
   // Запуск LLM-проверки
   async startCheck(fileName, modelID, warningMaterial) {
     try {
+
       if (window.llmLogger) {
-        window.llmLogger.logClientAction('Начало проверки систем ИИ');
-        window.llmLogger.logClientAction(`File: ${fileName}`);
+        window.llmLogger.logClientAction(`Начало проверки систем для: ${fileName}`);
       }
       
       if (this.isRunning) {
@@ -122448,32 +122431,14 @@ class LLMClient {
       }
       
       this.isRunning = true;
-      
-      // Запускаем серверную проверку
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction('Starting server LLM check');
-      // }
-      window.llmLogger.logClientAction(await this.apiService.startLlmCheck(fileName));
-      
-      // Выполняем первую проверку сразу
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction('Performing immediate first check');
-      // }
-      await this.performCheck(fileName, modelID, warningMaterial);
-      
-      // Запускаем интервал для последующих проверок
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction('Setting up polling interval');
-      // }
+
+      window.llmLogger.logServerResponse(JSON.stringify(await this.apiService.startLlmCheck(fileName)));
+
       this.checkInterval = setInterval(async () => {
         if (this.isRunning) {
-          await this.performCheck(fileName, modelID, warningMaterial);
+          await this.getLlmResult(fileName, modelID, warningMaterial);
         }
       }, this.intervalDelay);
-      
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
-      // }
       
     } catch (error) {
       if (window.llmLogger) {
@@ -122486,29 +122451,12 @@ class LLMClient {
   }
   
   // Выполнение одной проверки
-  async performCheck(fileName, modelID, warningMaterial) {
+  async getLlmResult(fileName, modelID, warningMaterial) {
     try {
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Polling for LLM results...');
-      }
       const response = await this.apiService.getLlmResult(fileName);
-      
-      if (response && response.result) {
-        if (window.llmLogger) {
-          window.llmLogger.logServerResponse('LLM results received');
-          window.llmLogger.logLLMResponse(JSON.stringify(response.result, null, 2));
-        }
-        
-        // Обновляем UI с результатом
-        this.updateLLMOutput(response.result);
-        
-        // Обрабатываем результаты и подсвечиваем элементы
-        await this.processLLMResults(response, modelID, warningMaterial);
-      } else {
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction('No results available yet');
-        }
-      }
+      window.llmLogger.logServerResponse('LLM results received');
+      window.llmLogger.logLLMResponse(JSON.stringify(response));
+      // await this.highlightLLMResults(response.result.dangerousElements, modelID, warningMaterial);
     } catch (error) {
       if (window.llmLogger) {
         window.llmLogger.logError('client', `Error during check polling: ${error.message}`);
@@ -122538,46 +122486,41 @@ class LLMClient {
   }
   
   // Обновление вывода LLM в UI
-  updateLLMOutput(result) {
-    try {
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Updating LLM output in UI');
-      }
-      const llmOutput = document.getElementById('llmOutput');
-      if (llmOutput) {
-        // Отключаем обновление llmOutput, так как теперь используем логгер
-        // llmOutput.value = result.message || result;
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
-        }
-      } else {
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction('LLM output element not found');
-        }
-      }
-    } catch (error) {
-      if (window.llmLogger) {
-        window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
-      }
-      console.error('[LLM-CLIENT] Error updating LLM output:', error);
-    }
-  }
+  // updateLLMOutput(result) {
+  //   try {
+  //     if (window.llmLogger) {
+  //       window.llmLogger.logClientAction('Updating LLM output in UI');
+  //     }
+  //     const llmOutput = document.getElementById('llmOutput');
+  //     if (llmOutput) {
+  //       // Отключаем обновление llmOutput, так как теперь используем логгер
+  //       // llmOutput.value = result.message || result;
+  //       if (window.llmLogger) {
+  //         window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
+  //       }
+  //     } else {
+  //       if (window.llmLogger) {
+  //         window.llmLogger.logClientAction('LLM output element not found');
+  //       }
+  //     }
+  //   } catch (error) {
+  //     if (window.llmLogger) {
+  //       window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
+  //     }
+  //     console.error('[LLM-CLIENT] Error updating LLM output:', error);
+  //   }
+  // }
   
   // Обработка результатов LLM и подсветка элементов
-  async processLLMResults(response, modelID, warningMaterial) {
+  async highlightLLMResults(dangerousElements, modelID, warningMaterial) {
     try {
       if (window.llmLogger) {
         window.llmLogger.logClientAction('Processing LLM results for highlighting');
       }
-      
-      if (response.result && response.result.dangerousElements) {
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction(`Found dangerous elements: ${response.result.dangerousElements.length}`);
-        }
-        
+      if (dangerousElements) {
         // Создаем экземпляр highlighter для подсветки
         const highlighter = new ElementHighlighter(this.viewer, modelID, warningMaterial);
-        await highlighter.highlightDangerousElements(response.result.dangerousElements);
+        await highlighter.highlightDangerousElements(dangerousElements);
       } else {
         if (window.llmLogger) {
           window.llmLogger.logClientAction('No dangerous elements found in results');
@@ -122687,7 +122630,7 @@ class LLMLogger {
     if (this.logWindow) {
       this.logWindow.style.display = 'flex';
       this.isVisible = true;
-      this.log('client', 'LLM Log Window opened');
+      // this.log('client', 'LLM Log Window opened');
     }
   }
 
@@ -123291,12 +123234,13 @@ const currentProjectID = url.searchParams.get("id"); //bimserver project id - us
 const scene = _viewer.context.getScene(); //for showing/hiding categories
 
 _viewer.context.renderer.postProduction.active = false;
-_viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
-  [IFCSPACE]: false  
-}); 
+// _viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
+//   [IFCSPACE]: false  
+// }); 
 
 _viewer.IFC.loader.ifcManager.parser.setupOptionalCategories({  
-  [IFCAIRTERMINAL]: true  // Явно включить  
+  [IFCAIRTERMINAL]: true,
+  [IFCSPACE]: false    // Явно включить  
 });
 
 _viewer.IFC.loader.ifcManager.applyWebIfcConfig({  
@@ -123344,6 +123288,13 @@ const _customKsiMaterial =  new MeshLambertMaterial({
   depthTest: false
 });
 
+new MeshLambertMaterial({
+  color: 0x00ff00,  // Зелёный цвет
+  transparent: true,  // Отключаем прозрачность (по умолчанию false)
+  opacity: 0.1,         // Полная непрозрачность (по умолчанию 1)
+  depthTest: true
+});
+
 for (let proj of projects) {
   if (proj.id === currentProjectID) {
     _fileName = proj.name;
@@ -123387,6 +123338,11 @@ async function loadIfc(url) {
   // Рекурсивный подсчёт элементов в структуре
   let highlightIds = [];
   function countElements(item) {
+    // console.log("countElements item", item)
+    // if (item.type == "IFCSPACE"){
+    //   transparentIds.push(item.expressID)
+    //   console.log("countElements item.type == IFCSPACE", item) //помогает показать невидимые элементы
+    // }
     highlightIds.push(item.expressID);
     _viewer.IFC.selector.highlightIfcItemsByID(_model.modelID, highlightIds); //помогает показать невидимые элементы
     let count = item.children.length;
@@ -123396,6 +123352,7 @@ async function loadIfc(url) {
     return count;
   }
   _numberOfElements = countElements(structure);
+  // createSubsetForColor(transparentIds, _transparentMaterial, "transparentIds")
   console.log('loadIfc numberOfElements modelInfo.rowCount', _numberOfElements, modelInfo.rowCount);
   
   // Используем пакетную отправку вместо индивидуальных запросов
@@ -123668,7 +123625,7 @@ btnAllKsi.onclick = async function() {
 };
 
 function createSubsetForColor(highlightIds, material, subsetName){
-  // console.log("createSubsetForColor(highlightIds, material, subsetName)", highlightIds, material, subsetName)
+  console.log("createSubsetForColor(highlightIds, material, subsetName)", highlightIds, material, subsetName);
   _viewer.IFC.loader.ifcManager.createSubset({  
     modelID: _model.modelID,  
     ids: highlightIds,  
@@ -123809,10 +123766,10 @@ const btnLLM = document.getElementById("btnLLM");
 
 btnLLM.onclick = async function() {
   try {
-    if (window.llmLogger) {
-      window.llmLogger.logClientAction('LLM button clicked');
-      window.llmLogger.logClientAction(`Current file name: ${_fileName}`);
-    }
+    // if (window.llmLogger) {
+    //   window.llmLogger.logClientAction('LLM button clicked');
+    //   window.llmLogger.logClientAction(`Current file name: ${_fileName}`);
+    // }
     
     if (!_fileName) {
       if (window.llmLogger) {
@@ -123824,44 +123781,20 @@ btnLLM.onclick = async function() {
     
     // Инициализируем LLM клиент если еще не создан
     if (!llmClient) {
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Initializing LLM client');
-      }
       llmClient = new LLMClient(api, _viewer);
     }
     
     if (llmClient.isCheckRunning()) {
-      // Останавливаем проверку
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Stopping LLM check');
-      }
       api.stopLlmCheck();
       llmClient.stopCheck();
       btnLLM.style.backgroundColor = '';
       btnLLM.textContent = 'LLM';
-      
-      // Скрываем окно логов при остановке
-      if (window.llmLogger) {
-        window.llmLogger.hideLogWindow();
-      }
+      window.llmLogger.hideLogWindow();
     } 
     else {
-      // Запускаем проверку
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Starting LLM check');
-      }
       btnLLM.style.backgroundColor = 'red';
       btnLLM.textContent = 'LLM (активно)';
-      
-      // Показываем окно логов при запуске
-      if (window.llmLogger) {
-        window.llmLogger.showLogWindow();
-      }
-      
-      // Запускаем LLM проверку через новый клиент
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction(`Starting LLM check for file: ${_fileName}`);
-      }
+      window.llmLogger.showLogWindow();
       await llmClient.startCheck(_fileName, _modelID, _warningMaterial);
     }
   } catch (error) {

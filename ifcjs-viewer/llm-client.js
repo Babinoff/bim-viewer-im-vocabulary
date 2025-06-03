@@ -7,15 +7,15 @@ export class LLMClient {
     this.viewer = viewer;
     this.checkInterval = null;
     this.isRunning = false;
-    this.intervalDelay = 300000; // 300 секунд
+    this.intervalDelay = 5000; // 50 секунд
   }
 
   // Запуск LLM-проверки
   async startCheck(fileName, modelID, warningMaterial) {
     try {
+
       if (window.llmLogger) {
-        window.llmLogger.logClientAction('Начало проверки систем ИИ');
-        window.llmLogger.logClientAction(`File: ${fileName}`);
+        window.llmLogger.logClientAction(`Начало проверки систем для: ${fileName}`);
       }
       
       if (this.isRunning) {
@@ -26,32 +26,14 @@ export class LLMClient {
       }
       
       this.isRunning = true;
-      
-      // Запускаем серверную проверку
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction('Starting server LLM check');
-      // }
-      window.llmLogger.logClientAction(await this.apiService.startLlmCheck(fileName));
-      
-      // Выполняем первую проверку сразу
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction('Performing immediate first check');
-      // }
-      await this.performCheck(fileName, modelID, warningMaterial);
-      
-      // Запускаем интервал для последующих проверок
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction('Setting up polling interval');
-      // }
+
+      window.llmLogger.logServerResponse(JSON.stringify(await this.apiService.startLlmCheck(fileName)));
+
       this.checkInterval = setInterval(async () => {
         if (this.isRunning) {
-          await this.performCheck(fileName, modelID, warningMaterial);
+          await this.getLlmResult(fileName, modelID, warningMaterial);
         }
       }, this.intervalDelay);
-      
-      // if (window.llmLogger) {
-      //   window.llmLogger.logClientAction(`Polling interval set up with ${this.intervalDelay/1000} second intervals`);
-      // }
       
     } catch (error) {
       if (window.llmLogger) {
@@ -64,29 +46,12 @@ export class LLMClient {
   }
   
   // Выполнение одной проверки
-  async performCheck(fileName, modelID, warningMaterial) {
+  async getLlmResult(fileName, modelID, warningMaterial) {
     try {
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Polling for LLM results...');
-      }
       const response = await this.apiService.getLlmResult(fileName);
-      
-      if (response && response.result) {
-        if (window.llmLogger) {
-          window.llmLogger.logServerResponse('LLM results received');
-          window.llmLogger.logLLMResponse(JSON.stringify(response.result, null, 2));
-        }
-        
-        // Обновляем UI с результатом
-        this.updateLLMOutput(response.result);
-        
-        // Обрабатываем результаты и подсвечиваем элементы
-        await this.processLLMResults(response, modelID, warningMaterial);
-      } else {
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction('No results available yet');
-        }
-      }
+      window.llmLogger.logServerResponse('LLM results received');
+      window.llmLogger.logLLMResponse(JSON.stringify(response));
+      // await this.highlightLLMResults(response.result.dangerousElements, modelID, warningMaterial);
     } catch (error) {
       if (window.llmLogger) {
         window.llmLogger.logError('client', `Error during check polling: ${error.message}`);
@@ -116,46 +81,41 @@ export class LLMClient {
   }
   
   // Обновление вывода LLM в UI
-  updateLLMOutput(result) {
-    try {
-      if (window.llmLogger) {
-        window.llmLogger.logClientAction('Updating LLM output in UI');
-      }
-      const llmOutput = document.getElementById('llmOutput');
-      if (llmOutput) {
-        // Отключаем обновление llmOutput, так как теперь используем логгер
-        // llmOutput.value = result.message || result;
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
-        }
-      } else {
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction('LLM output element not found');
-        }
-      }
-    } catch (error) {
-      if (window.llmLogger) {
-        window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
-      }
-      console.error('[LLM-CLIENT] Error updating LLM output:', error);
-    }
-  }
+  // updateLLMOutput(result) {
+  //   try {
+  //     if (window.llmLogger) {
+  //       window.llmLogger.logClientAction('Updating LLM output in UI');
+  //     }
+  //     const llmOutput = document.getElementById('llmOutput');
+  //     if (llmOutput) {
+  //       // Отключаем обновление llmOutput, так как теперь используем логгер
+  //       // llmOutput.value = result.message || result;
+  //       if (window.llmLogger) {
+  //         window.llmLogger.logClientAction('LLM output element found but not updated (using logger instead)');
+  //       }
+  //     } else {
+  //       if (window.llmLogger) {
+  //         window.llmLogger.logClientAction('LLM output element not found');
+  //       }
+  //     }
+  //   } catch (error) {
+  //     if (window.llmLogger) {
+  //       window.llmLogger.logError('client', `Error updating LLM output: ${error.message}`);
+  //     }
+  //     console.error('[LLM-CLIENT] Error updating LLM output:', error);
+  //   }
+  // }
   
   // Обработка результатов LLM и подсветка элементов
-  async processLLMResults(response, modelID, warningMaterial) {
+  async highlightLLMResults(dangerousElements, modelID, warningMaterial) {
     try {
       if (window.llmLogger) {
         window.llmLogger.logClientAction('Processing LLM results for highlighting');
       }
-      
-      if (response.result && response.result.dangerousElements) {
-        if (window.llmLogger) {
-          window.llmLogger.logClientAction(`Found dangerous elements: ${response.result.dangerousElements.length}`);
-        }
-        
+      if (dangerousElements) {
         // Создаем экземпляр highlighter для подсветки
         const highlighter = new ElementHighlighter(this.viewer, modelID, warningMaterial);
-        await highlighter.highlightDangerousElements(response.result.dangerousElements);
+        await highlighter.highlightDangerousElements(dangerousElements);
       } else {
         if (window.llmLogger) {
           window.llmLogger.logClientAction('No dangerous elements found in results');
