@@ -122567,7 +122567,7 @@ class LLMClient {
             window.llmLogger.resetLLMStreamLog();
             window.llmLogger.logServerResponse('LLM results completed via WebSocket');
             // Создаем новую запись для финального JSON результата
-            window.llmLogger.log('llm', JSON.stringify(result), 'llm-response');
+            window.llmLogger.log('llm', result.message.split("title")[1], 'llm-response');
           }
           
           // Обработка полного результата и подсветка опасных элементов
