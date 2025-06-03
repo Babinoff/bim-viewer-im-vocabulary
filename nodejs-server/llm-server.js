@@ -65,11 +65,26 @@ class LLMServer {
   }
   
   // Генерация результата через LLM
-  async generateLLMResult(dangerousElementsData, socketId = null) {
+  async generateLLMResult(dangerousElementsData, socketId = null, userPrompt = null) {
     try {
-      console.log(`[LLM-SERVER] Generating LLM result for data`, dangerousElementsData);
-      const prompt = `Привышение пороговых величин для датчиков оборудования, сопутсвующуя информация: ${JSON.stringify(dangerousElementsData)} .`;
-      console.log(prompt);
+      let prompt;
+      if (userPrompt) {
+        prompt = userPrompt;
+        console.log(`[LLM-SERVER] Generating LLM result using user provided prompt: ${prompt}`);
+      } else if (dangerousElementsData && dangerousElementsData.length > 0) {
+        prompt = `Привышение пороговых величин для датчиков оборудования, сопутсвующуя информация: ${JSON.stringify(dangerousElementsData)} .`;
+        console.log(`[LLM-SERVER] Generating LLM result for data`, dangerousElementsData);
+        console.log(prompt);
+      } else {
+        console.log('[LLM-SERVER] No data provided for LLM result generation.');
+        // Отправляем ошибку или сообщение об отсутствии данных через WebSocket
+        const io = require('./server').io;
+        if (io && socketId) {
+          io.to(socketId).emit('llm-error', { message: 'No data or prompt provided for LLM generation.' });
+        }
+        return; // Прерываем выполнение, если нет данных для генерации
+      }
+
       let llmResponse = "";
       
       // Получаем ссылку на io из модуля server.js
@@ -94,6 +109,8 @@ class LLMServer {
       console.log('[LLM-SERVER] LLM response received, length:', llmResponse ? llmResponse.length : 0);
       const responseParts = llmResponse.split("</think>")
       const result = {
+        // globalid теперь может быть не определен, если используется userPrompt
+        globalid: dangerousElementsData ? dangerousElementsData.map(id => id.globalid) : [],
         think: responseParts[0],
         message: responseParts[1]
       };
@@ -149,21 +166,6 @@ class LLMServer {
       
       if (result) {
         console.log('[LLM-SERVER] Result found for file:', fileName);
-        // console.log('[LLM-SERVER] Result details:');
-        // console.log('[LLM-SERVER] - Dangerous elements count:', result.dangerousElements ? result.dangerousElements.length : 0);
-        
-        // if (result.dangerousElements && result.dangerousElements.length > 0) {
-        //   result.dangerousElements.forEach((item, index) => {
-        //     console.log(`[LLM-SERVER] - Element ${index + 1}: GlobalID=${item.globalid}, ExpressID=${item.expressID}, Vocabulary=${item.vocabulary}`);
-        //   });
-        // }
-        
-        // console.log('[LLM-SERVER] - Message length:', result.message ? result.message.length : 0);
-        
-        // // Очищаем результат после получения
-        // delete this.results[fileName];
-        // console.log('[LLM-SERVER] Result cleared after retrieval');
-        
         return { success: true, result: result };
       } else {
         console.log('[LLM-SERVER] No result available for file:', fileName);

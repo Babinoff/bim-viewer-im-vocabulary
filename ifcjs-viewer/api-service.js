@@ -393,7 +393,7 @@ function connectToWebSocket(callbacks = {}) {
           });
           
           socket.on('llm-chunk', (data) => {
-            console.log('Received LLM chunk:', data.chunk);
+            // console.log('Received LLM chunk:', data.chunk);
             if (socketCallbacks.onChunk) socketCallbacks.onChunk(data.chunk);
           });
           
@@ -436,14 +436,14 @@ function connectToWebSocket(callbacks = {}) {
  * @param {string} fileName - имя файла модели
  * @returns {Promise<void>}
  */
-async function requestLlmResultsViaWebSocket(fileName) {
+async function requestLlmResultsViaWebSocket(fileName, prompt) {
   try {
     if (!socket || !socket.connected) {
       throw new Error('WebSocket not connected. Call connectToWebSocket first.');
     }
     
-    console.log('Requesting LLM results via WebSocket for file:', fileName);
-    socket.emit('request-llm-results', { fileName });
+    console.log('Requesting LLM results via WebSocket for file:', fileName, 'with prompt:', prompt);
+    socket.emit('request-llm-results', { fileName, prompt });
   } catch (error) {
     console.error('Error requesting LLM results via WebSocket:', error);
     throw error;

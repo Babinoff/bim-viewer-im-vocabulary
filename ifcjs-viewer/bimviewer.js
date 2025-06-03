@@ -575,6 +575,28 @@ btnExecuteCommand.onclick = async function() {
       alert('Введите команду');
       return;
     }
+
+    if (command.startsWith('заявка')) {
+      // const requestText = command.substring('заявка'.length).trim();
+      // const prompt = `Пользователь оставил заявку: ${requestText}. Сгенерируй ответ для пользователя.`;
+      const prompt = `В нашем помещении 21 часто отключается электричество, 
+                      приходится включать обратно автомат в щитовой, 
+                      просьба сделать что-то, чтобы работа электросети стабилизировалась.`;
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction(`Отправка заявки: ${requestText}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${requestText}`);
+      }
+
+      // Инициализируем LLM клиент если еще не создан
+      if (!llmClient) {
+        llmClient = new LLMClient(apiService, _viewer);
+      }
+
+      // Запускаем LLM проверку для получения ответа
+      llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+
+      return;
+    }
     
     console.log('Выполнение команды:', command);
     

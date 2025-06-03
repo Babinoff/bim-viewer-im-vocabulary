@@ -111,7 +111,7 @@ export class LLMLogger {
     }
 
     // Отображаем в консоли
-    console.log(`[LLM-${source.toUpperCase()}] ${message}`);
+    // console.log(`[LLM-${source.toUpperCase()}] ${message}`);
     
     // Отображаем в окне логов
     this.displayLogEntry(logEntry);
@@ -171,7 +171,7 @@ export class LLMLogger {
     }
     
     // Отображаем в консоли
-    console.log(`[LLM-LLM] ${message}`);
+    // console.log(`[LLM-LLM] ${message}`);
   }
 
   // Метод для сброса текущего потокового лога LLM

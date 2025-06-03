@@ -13,7 +13,7 @@ export class LLMClient {
   }
 
   // Запуск LLM-проверки
-  async startCheck(fileName, modelID, warningMaterial) {
+  async startCheck(fileName, modelID, warningMaterial, prompt = null) {
     try {
       if (window.llmLogger) {
         window.llmLogger.logClientAction(`Начало проверки систем для: ${fileName}`);
@@ -47,7 +47,7 @@ export class LLMClient {
         },
         
         // Обработчик получения полного результата
-        onComplete: (result) => {
+        onComplete: async (result) => {
           if (window.llmLogger) {
             // Завершаем текущий потоковый лог LLM
             window.llmLogger.resetLLMStreamLog();
@@ -55,12 +55,13 @@ export class LLMClient {
             // Создаем новую запись для финального JSON результата
             window.llmLogger.log('llm', result.message.split("title")[1], 'llm-response');
           }
-          
+          const finalResult = await this.getLlmResult(fileName);
+          console.log('[LLM-CLIENT] LLM result received via HTTP:', JSON.stringify(finalResult));
           // Обработка полного результата и подсветка опасных элементов
           try {
-            if (result && result.dangerousElements) {
+            if (finalResult && finalResult.dangerousElements) {
               console.log('[LLM-CLIENT] Processing dangerous elements from WebSocket result:', result.dangerousElements);
-              this.highlightLLMResults(result.dangerousElements, modelID, warningMaterial);
+              this.highlightLLMResults(finalResult.dangerousElements[0].globalid, modelID, warningMaterial);
             } 
           } catch (error) {
             console.error('[LLM-CLIENT] Error processing WebSocket result:', error);
@@ -81,16 +82,6 @@ export class LLMClient {
       // Отправляем запрос на начало проверки через HTTP
       window.llmLogger.logServerResponse(JSON.stringify(await this.apiService.startLlmCheck(fileName)));
       
-      // Запрашиваем результаты через WebSocket
-      await this.apiService.requestLlmResultsViaWebSocket(fileName);
-      
-      // Оставляем интервал для периодической проверки, если WebSocket не сработает
-      // this.checkInterval = setInterval(async () => {
-      //   if (this.isRunning) {
-      //     await this.getLlmResult(fileName, modelID, warningMaterial);
-      //   }
-      // }, this.intervalDelay);
-      
     } catch (error) {
       if (window.llmLogger) {
         window.llmLogger.logError('client', `CRITICAL ERROR starting LLM check: ${error.message}`);
@@ -102,32 +93,11 @@ export class LLMClient {
   }
   
   // Выполнение одной проверки
-  async getLlmResult(fileName, modelID, warningMaterial) {
+  async getLlmResult(fileName) {
     try {
       // Если WebSocket соединение активно, используем его
-      if (this.socket && this.socket.connected) {
-        console.log('[LLM-CLIENT] Using WebSocket for LLM results');
-        // Запрашиваем результаты через WebSocket
-        await this.apiService.requestLlmResultsViaWebSocket(fileName);
-        // Результаты будут обрабатываться через обработчики событий WebSocket
-        return;
-      }
-      
-      // Запасной вариант - HTTP запрос
-      console.log('[LLM-CLIENT] Using HTTP for LLM results (WebSocket not available)');
       const response = await this.apiService.getLlmResult(fileName);
-      
-      if (window.llmLogger) {
-        window.llmLogger.logServerResponse('LLM results received via HTTP');
-        // Обновляем текущий ответ
-        this.currentLlmResponse = JSON.stringify(response);
-        window.llmLogger.logLLMResponse(this.currentLlmResponse);
-      }
-      
-      // Подсветка опасных элементов, если необходимо
-      if (response && response.result && response.result.dangerousElements) {
-        await this.highlightLLMResults(response.result.dangerousElements, modelID, warningMaterial);
-      }
+      return response;
     } catch (error) {
       if (window.llmLogger) {
         window.llmLogger.logError('client', `Error during check polling: ${error.message}`);
@@ -186,7 +156,6 @@ export class LLMClient {
     }
   }
   
-  // Обновление вывода LLM в UI
   // updateLLMOutput(result) {
   //   try {
   //     if (window.llmLogger) {

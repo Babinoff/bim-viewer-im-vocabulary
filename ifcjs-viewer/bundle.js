@@ -121846,7 +121846,7 @@ function connectToWebSocket(callbacks = {}) {
           });
           
           socket.on('llm-chunk', (data) => {
-            console.log('Received LLM chunk:', data.chunk);
+            // console.log('Received LLM chunk:', data.chunk);
             if (socketCallbacks.onChunk) socketCallbacks.onChunk(data.chunk);
           });
           
@@ -121889,14 +121889,14 @@ function connectToWebSocket(callbacks = {}) {
  * @param {string} fileName - имя файла модели
  * @returns {Promise<void>}
  */
-async function requestLlmResultsViaWebSocket(fileName) {
+async function requestLlmResultsViaWebSocket(fileName, prompt) {
   try {
     if (!socket || !socket.connected) {
       throw new Error('WebSocket not connected. Call connectToWebSocket first.');
     }
     
-    console.log('Requesting LLM results via WebSocket for file:', fileName);
-    socket.emit('request-llm-results', { fileName });
+    console.log('Requesting LLM results via WebSocket for file:', fileName, 'with prompt:', prompt);
+    socket.emit('request-llm-results', { fileName, prompt });
   } catch (error) {
     console.error('Error requesting LLM results via WebSocket:', error);
     throw error;
@@ -122527,7 +122527,7 @@ class LLMClient {
   }
 
   // Запуск LLM-проверки
-  async startCheck(fileName, modelID, warningMaterial) {
+  async startCheck(fileName, modelID, warningMaterial, prompt = null) {
     try {
       if (window.llmLogger) {
         window.llmLogger.logClientAction(`Начало проверки систем для: ${fileName}`);
@@ -122561,7 +122561,7 @@ class LLMClient {
         },
         
         // Обработчик получения полного результата
-        onComplete: (result) => {
+        onComplete: async (result) => {
           if (window.llmLogger) {
             // Завершаем текущий потоковый лог LLM
             window.llmLogger.resetLLMStreamLog();
@@ -122569,12 +122569,13 @@ class LLMClient {
             // Создаем новую запись для финального JSON результата
             window.llmLogger.log('llm', result.message.split("title")[1], 'llm-response');
           }
-          
+          const finalResult = await this.getLlmResult(fileName);
+          console.log('[LLM-CLIENT] LLM result received via HTTP:', JSON.stringify(finalResult));
           // Обработка полного результата и подсветка опасных элементов
           try {
-            if (result && result.dangerousElements) {
+            if (finalResult && finalResult.dangerousElements) {
               console.log('[LLM-CLIENT] Processing dangerous elements from WebSocket result:', result.dangerousElements);
-              this.highlightLLMResults(result.dangerousElements, modelID, warningMaterial);
+              this.highlightLLMResults(finalResult.dangerousElements[0].globalid, modelID, warningMaterial);
             } 
           } catch (error) {
             console.error('[LLM-CLIENT] Error processing WebSocket result:', error);
@@ -122595,16 +122596,6 @@ class LLMClient {
       // Отправляем запрос на начало проверки через HTTP
       window.llmLogger.logServerResponse(JSON.stringify(await this.apiService.startLlmCheck(fileName)));
       
-      // Запрашиваем результаты через WebSocket
-      await this.apiService.requestLlmResultsViaWebSocket(fileName);
-      
-      // Оставляем интервал для периодической проверки, если WebSocket не сработает
-      // this.checkInterval = setInterval(async () => {
-      //   if (this.isRunning) {
-      //     await this.getLlmResult(fileName, modelID, warningMaterial);
-      //   }
-      // }, this.intervalDelay);
-      
     } catch (error) {
       if (window.llmLogger) {
         window.llmLogger.logError('client', `CRITICAL ERROR starting LLM check: ${error.message}`);
@@ -122616,32 +122607,11 @@ class LLMClient {
   }
   
   // Выполнение одной проверки
-  async getLlmResult(fileName, modelID, warningMaterial) {
+  async getLlmResult(fileName) {
     try {
       // Если WebSocket соединение активно, используем его
-      if (this.socket && this.socket.connected) {
-        console.log('[LLM-CLIENT] Using WebSocket for LLM results');
-        // Запрашиваем результаты через WebSocket
-        await this.apiService.requestLlmResultsViaWebSocket(fileName);
-        // Результаты будут обрабатываться через обработчики событий WebSocket
-        return;
-      }
-      
-      // Запасной вариант - HTTP запрос
-      console.log('[LLM-CLIENT] Using HTTP for LLM results (WebSocket not available)');
       const response = await this.apiService.getLlmResult(fileName);
-      
-      if (window.llmLogger) {
-        window.llmLogger.logServerResponse('LLM results received via HTTP');
-        // Обновляем текущий ответ
-        this.currentLlmResponse = JSON.stringify(response);
-        window.llmLogger.logLLMResponse(this.currentLlmResponse);
-      }
-      
-      // Подсветка опасных элементов, если необходимо
-      if (response && response.result && response.result.dangerousElements) {
-        await this.highlightLLMResults(response.result.dangerousElements, modelID, warningMaterial);
-      }
+      return response;
     } catch (error) {
       if (window.llmLogger) {
         window.llmLogger.logError('client', `Error during check polling: ${error.message}`);
@@ -122700,7 +122670,6 @@ class LLMClient {
     }
   }
   
-  // Обновление вывода LLM в UI
   // updateLLMOutput(result) {
   //   try {
   //     if (window.llmLogger) {
@@ -122888,7 +122857,7 @@ class LLMLogger {
     }
 
     // Отображаем в консоли
-    console.log(`[LLM-${source.toUpperCase()}] ${message}`);
+    // console.log(`[LLM-${source.toUpperCase()}] ${message}`);
     
     // Отображаем в окне логов
     this.displayLogEntry(logEntry);
@@ -122948,7 +122917,7 @@ class LLMLogger {
     }
     
     // Отображаем в консоли
-    console.log(`[LLM-LLM] ${message}`);
+    // console.log(`[LLM-LLM] ${message}`);
   }
 
   // Метод для сброса текущего потокового лога LLM
@@ -123984,6 +123953,28 @@ btnExecuteCommand.onclick = async function() {
     const command = commandInput.value.trim();
     if (!command) {
       alert('Введите команду');
+      return;
+    }
+
+    if (command.startsWith('заявка')) {
+      // const requestText = command.substring('заявка'.length).trim();
+      // const prompt = `Пользователь оставил заявку: ${requestText}. Сгенерируй ответ для пользователя.`;
+      const prompt = `В нашем помещении 21 часто отключается электричество, 
+                      приходится включать обратно автомат в щитовой, 
+                      просьба сделать что-то, чтобы работа электросети стабилизировалась.`;
+      if (window.llmLogger) {
+        window.llmLogger.logClientAction(`Отправка заявки: ${requestText}`);
+        window.llmLogger.logLLMResponse(`Заявка отправлена: ${requestText}`);
+      }
+
+      // Инициализируем LLM клиент если еще не создан
+      if (!llmClient) {
+        llmClient = new LLMClient(api, _viewer);
+      }
+
+      // Запускаем LLM проверку для получения ответа
+      llmClient.startCheck(_fileName, _modelID, _warningMaterial, prompt);
+
       return;
     }
     
