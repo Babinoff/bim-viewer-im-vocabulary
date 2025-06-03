@@ -122543,6 +122543,11 @@ class LLMClient {
       this.isRunning = true;
       this.currentLlmResponse = "";
       
+      // Сбрасываем текущий потоковый лог LLM перед началом новой проверки
+      if (window.llmLogger) {
+        window.llmLogger.resetLLMStreamLog();
+      }
+      
       // Инициализируем WebSocket соединение
       this.socket = await this.apiService.connectToWebSocket({
         // Обработчик получения чанка данных
@@ -122558,8 +122563,11 @@ class LLMClient {
         // Обработчик получения полного результата
         onComplete: (result) => {
           if (window.llmLogger) {
+            // Завершаем текущий потоковый лог LLM
+            window.llmLogger.resetLLMStreamLog();
             window.llmLogger.logServerResponse('LLM results completed via WebSocket');
-            window.llmLogger.logLLMResponse(JSON.stringify(result));
+            // Создаем новую запись для финального JSON результата
+            window.llmLogger.log('llm', JSON.stringify(result), 'llm-response');
           }
           
           // Обработка полного результата и подсветка опасных элементов
@@ -122666,6 +122674,11 @@ class LLMClient {
       this.isRunning = false;
       this.currentLlmResponse = "";
       console.log('[LLM-CLIENT] LLM check stopped');
+      
+      // Завершаем текущий потоковый лог LLM
+      if (window.llmLogger) {
+        window.llmLogger.resetLLMStreamLog();
+      }
       
       // Отправляем запрос на остановку проверки на сервере
       this.apiService.stopLlmCheck().then(response => {
@@ -122909,8 +122922,41 @@ class LLMLogger {
     this.log('server', message, 'info');
   }
 
+  // Переменная для хранения текущего потокового лога LLM ответа
+  #currentLlmStreamLog = null;
+
   logLLMResponse(message) {
-    this.log('llm', message, 'llm-response');
+    // Если нет активного потокового лога, создаем новый
+    if (!this.#currentLlmStreamLog) {
+      this.#currentLlmStreamLog = this.streamLog('llm', message);
+      // Добавляем запись в массив логов
+      const timestamp = new Date().toISOString();
+      this.logs.push({
+        timestamp,
+        source: 'llm',
+        message: message,
+        type: 'llm-response'
+      });
+    } else {
+      // Обновляем существующий потоковый лог
+      this.#currentLlmStreamLog.update(message);
+      
+      // Обновляем последнюю запись в массиве логов
+      if (this.logs.length > 0) {
+        this.logs[this.logs.length - 1].message = message;
+      }
+    }
+    
+    // Отображаем в консоли
+    console.log(`[LLM-LLM] ${message}`);
+  }
+
+  // Метод для сброса текущего потокового лога LLM
+  resetLLMStreamLog() {
+    if (this.#currentLlmStreamLog) {
+      this.#currentLlmStreamLog.complete();
+      this.#currentLlmStreamLog = null;
+    }
   }
 
   logError(source, message) {

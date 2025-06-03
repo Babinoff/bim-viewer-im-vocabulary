@@ -29,6 +29,11 @@ export class LLMClient {
       this.isRunning = true;
       this.currentLlmResponse = "";
       
+      // Сбрасываем текущий потоковый лог LLM перед началом новой проверки
+      if (window.llmLogger) {
+        window.llmLogger.resetLLMStreamLog();
+      }
+      
       // Инициализируем WebSocket соединение
       this.socket = await this.apiService.connectToWebSocket({
         // Обработчик получения чанка данных
@@ -44,8 +49,11 @@ export class LLMClient {
         // Обработчик получения полного результата
         onComplete: (result) => {
           if (window.llmLogger) {
+            // Завершаем текущий потоковый лог LLM
+            window.llmLogger.resetLLMStreamLog();
             window.llmLogger.logServerResponse('LLM results completed via WebSocket');
-            window.llmLogger.logLLMResponse(JSON.stringify(result));
+            // Создаем новую запись для финального JSON результата
+            window.llmLogger.log('llm', JSON.stringify(result), 'llm-response');
           }
           
           // Обработка полного результата и подсветка опасных элементов
@@ -152,6 +160,11 @@ export class LLMClient {
       this.isRunning = false;
       this.currentLlmResponse = "";
       console.log('[LLM-CLIENT] LLM check stopped');
+      
+      // Завершаем текущий потоковый лог LLM
+      if (window.llmLogger) {
+        window.llmLogger.resetLLMStreamLog();
+      }
       
       // Отправляем запрос на остановку проверки на сервере
       this.apiService.stopLlmCheck().then(response => {
