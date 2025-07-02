@@ -17,6 +17,7 @@
   "dependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",
     "socket.io": "^4.5.1",
+    "socket.io-client": "^4.8.1",
     "three": "^0.135.0",
     "web-ifc": "0.0.35",
     "web-ifc-viewer": "^1.0.207"
