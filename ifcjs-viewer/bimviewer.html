@@ -314,15 +314,14 @@
   }
 
   .progress-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: auto;
+      height: auto;
+      background-color: transparent;
+      display: block;
       z-index: 1000; /* Должен быть выше всех элементов */
       pointer-events: auto; /* Разрешаем события мыши */
       visibility: hidden;
@@ -340,6 +339,8 @@
       padding: 20px;
       border-radius: 8px;
       width: 300px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      border: 1px solid #ddd;
       /* pointer-events должны быть auto по умолчанию */
   }
 
