@@ -63,6 +63,10 @@ export class GUIManager {
       this.createPropertyEntry(key, props[key]);
     }
 
+    // Dialog will be shown separately by showPropertiesDialog method
+  }
+
+  showPropertiesDialog() {
     this.dialog.showModal();
   }
 
@@ -335,10 +339,6 @@ export class GUIManager {
 
     childNode.onclick = async () => {
       this.viewer.IFC.selector.pickIfcItemsByID(0, [node.expressID], true);
-      const props = await this.viewer.IFC.getProperties(0, node.expressID, true, false);
-      this.createPropertiesMenu(props);
-      document.getElementById("ifc-property-menu").style.display = "initial";
-      this.propertiesButton.classList.add("active");
     };
   }
 
@@ -418,5 +418,16 @@ export class GUIManager {
         }
       }, 300);
     }, 5000);
+  }
+
+  async openPropertiesMenuForSelected() {
+    const selectedItems = this.viewer.IFC.selector.selection[this.modelID];
+    if (selectedItems && selectedItems.size > 0) {
+      const expressID = Array.from(selectedItems)[0];
+      const props = await this.viewer.IFC.getProperties(0, expressID, true, false);
+      this.createPropertiesMenu(props);
+      document.getElementById("ifc-property-menu").style.display = "initial";
+      this.propertiesButton.classList.add("active");
+    }
   }
 }

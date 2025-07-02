@@ -304,6 +304,11 @@ window.onkeydown = (event) => {
   if (event.code === "Delete" && measurementsActive) {
     _viewer.dimensions.delete();
   }
+
+  if (event.ctrlKey && event.code === "KeyI") {
+    event.preventDefault();
+    guiManager.showPropertiesDialog();
+  }
 };
 
 //notes / annotations
