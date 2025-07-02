@@ -1,4 +1,5 @@
 // API Service - все запросы к серверу
+import { io } from 'socket.io-client';
 
 const API_BASE_URL = 'http://localhost:4000';
 
@@ -388,65 +389,42 @@ function connectToWebSocket(callbacks = {}) {
       if (callbacks.onComplete) socketCallbacks.onComplete = callbacks.onComplete;
       if (callbacks.onError) socketCallbacks.onError = callbacks.onError;
       
-      return socket;
+      return Promise.resolve(socket);
     }
     
-    // Импортируем socket.io-client динамически
-    const script = document.createElement('script');
-    script.src = 'https://cdn.socket.io/4.7.4/socket.io.min.js';
-    script.integrity = 'sha384-Gr6Lu2Ajx28mzwyVR8CFkULdCU7kMlZ9UthllibdOSo6qAiN+yXNHqtgdTvFXMT4';
-    script.crossOrigin = 'anonymous';
+    // Создаем новое подключение используя импортированный socket.io
+    socket = io(API_BASE_URL);
     
-    // Ждем загрузки скрипта
-    return new Promise((resolve, reject) => {
-      script.onload = () => {
-        try {
-          // Создаем новое подключение
-          socket = io(API_BASE_URL);
-          
-          // Сохраняем колбэки
-          if (callbacks.onChunk) socketCallbacks.onChunk = callbacks.onChunk;
-          if (callbacks.onComplete) socketCallbacks.onComplete = callbacks.onComplete;
-          if (callbacks.onError) socketCallbacks.onError = callbacks.onError;
-          
-          // Настраиваем обработчики событий
-          socket.on('connect', () => {
-            console.log('WebSocket connected, socket ID:', socket.id);
-          });
-          
-          socket.on('llm-chunk', (data) => {
-            // console.log('Received LLM chunk:', data.chunk);
-            if (socketCallbacks.onChunk) socketCallbacks.onChunk(data.chunk);
-          });
-          
-          socket.on('llm-complete', (data) => {
-            console.log('Received complete LLM result');
-            if (socketCallbacks.onComplete) socketCallbacks.onComplete(data.result);
-          });
-          
-          socket.on('llm-error', (data) => {
-            console.error('LLM error:', data.message);
-            if (socketCallbacks.onError) socketCallbacks.onError(data.message);
-          });
-          
-          socket.on('disconnect', () => {
-            console.log('WebSocket disconnected');
-          });
-          
-          resolve(socket);
-        } catch (error) {
-          console.error('Error initializing socket.io:', error);
-          reject(error);
-        }
-      };
-      
-      script.onerror = (error) => {
-        console.error('Error loading socket.io script:', error);
-        reject(error);
-      };
-      
-      document.head.appendChild(script);
+    // Сохраняем колбэки
+    if (callbacks.onChunk) socketCallbacks.onChunk = callbacks.onChunk;
+    if (callbacks.onComplete) socketCallbacks.onComplete = callbacks.onComplete;
+    if (callbacks.onError) socketCallbacks.onError = callbacks.onError;
+    
+    // Настраиваем обработчики событий
+    socket.on('connect', () => {
+      console.log('WebSocket connected, socket ID:', socket.id);
     });
+    
+    socket.on('llm-chunk', (data) => {
+      // console.log('Received LLM chunk:', data.chunk);
+      if (socketCallbacks.onChunk) socketCallbacks.onChunk(data.chunk);
+    });
+    
+    socket.on('llm-complete', (data) => {
+      console.log('Received complete LLM result');
+      if (socketCallbacks.onComplete) socketCallbacks.onComplete(data.result);
+    });
+    
+    socket.on('llm-error', (data) => {
+      console.error('LLM error:', data.message);
+      if (socketCallbacks.onError) socketCallbacks.onError(data.message);
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('WebSocket disconnected');
+    });
+    
+    return Promise.resolve(socket);
   } catch (error) {
     console.error('Error in connectToWebSocket:', error);
     throw error;
