@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const API_KEY = process.env.WEBUI_TOKEN;
 const BASE_URL = 'http://localhost:9090';
-const _model_tech = 'qwen/qwen3-8b';
+const _model_tech = 'qwen/qwen3-8b'; // google/gemma-2-9b // qwen/qwen3-8b
 const _model_pro = 'deepseek/deepseek-r1-0528-qwen3-8b';
 const roles = {"pro":_model_pro, "tech":_model_tech};
 

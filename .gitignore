@@ -1,11 +1,15 @@
-nodejs-server/node_modules
+server-nodejs/node_modules
 ifcjs-viewer/node_modules
 tangl-demo-playground1/node_modules
 /node_modules
 tangl-dev
 Renga коттедж для сериала.rnp
 .env
-nodejs-server/models/
+server-nodejs/models/
 .sqlite-shm
 .sqlite-wal
-nodejs-server/models/exploitation_test.sqlite-shm
+server-nodejs/models/exploitation_test.sqlite-shm
+server-nodejs/models/*.sqlite-wal
+server-nodejs/models/*.sqlite
+server-nodejs/models/exploitation_test.sqlite
+server-nodejs/models/Renga коттедж для сериала.sqlite

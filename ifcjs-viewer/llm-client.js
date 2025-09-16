@@ -82,7 +82,7 @@ export class LLMClient {
       
       if (prompt) {
         // window.llmLogger.logClientAction(`Отправка пользовательского запроса LLM: ${prompt}`);
-        const cheakStart = await this.apiService.startLlmPrompt(prompt.replace('21', 'ifcSpace 21'));
+        const cheakStart = await this.apiService.startLlmPrompt(prompt.replace('21', 'use bonsai tool get_ifc_space_properties_by_number for ifcSpace 21'));
         window.llmLogger.logServerResponse(JSON.stringify(cheakStart));
       }
       else{
